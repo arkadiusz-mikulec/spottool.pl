@@ -111,3 +111,4 @@ C:\Users\LENOVO\Documents\SpotTool_Files\SpotTool_pl\SpotTool\SpotTool.Web\bin\D
 C:\Users\LENOVO\Documents\SpotTool_Files\SpotTool_pl\SpotTool\SpotTool.Web\obj\Debug\net10.0\SpotTool.Web.csproj.AssemblyReference.cache
 C:\Users\LENOVO\Documents\SpotTool_Files\SpotTool_pl\SpotTool\SpotTool.Web\obj\Debug\net10.0\SpotTool.Web.MvcApplicationPartsAssemblyInfo.cs
 C:\Users\LENOVO\Documents\SpotTool_Files\SpotTool_pl\SpotTool\SpotTool.Web\obj\Debug\net10.0\SpotTool.DBB8C9C1.Up2Date
+C:\Users\LENOVO\Documents\SpotTool_Files\SpotTool_pl\SpotTool\SpotTool.Web\obj\Debug\net10.0\SpotTool.Web.sourcelink.json

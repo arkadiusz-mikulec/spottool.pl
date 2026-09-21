@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SpotTool.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+84cae661e870f72742bb5a644ca31d0cb9af24fe")]
 [assembly: System.Reflection.AssemblyProductAttribute("SpotTool.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SpotTool.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
