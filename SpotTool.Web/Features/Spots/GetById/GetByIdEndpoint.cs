@@ -1,19 +1,21 @@
 using FastEndpoints;
 using Marten;
-using SpotTool.Web.Feature.Shared;
+using SpotTool.Web.Features.Shared;
+using SpotTool.Web.Features.Shared.Services;
 
-namespace SpotTool.Web.Feature.Spots.GetById;
+
+
+namespace SpotTool.Web.Features.Spots.GetById;
 
 // --- 2. NOWY ENDPOINT GET (POTRZEBNY JAKO CEL DLA LOCATION) ---
 // Służy maszynom/TMS-om do sprawdzenia, czy Spot na pewno istnieje w bazie
-public class GetByIdEndpoint(IDocumentStore store) : EndpointWithoutRequest<Spot>
+public class GetByIdEndpoint(SpotService spotService) : EndpointWithoutRequest<DbModels.Spot>
 {
-    private readonly IDocumentStore _store = store;
-
+    private readonly SpotService _spotService = spotService;
     public override void Configure()
     {
         // Trasa przyjmuje {Id}, którego wymaga SendCreatedAtAsync
-        Get("/api/v1/integrations/spots/{Id}"); 
+        Get("/api/v1/integrations/spots/{Id}");
         AllowAnonymous();
     }
 
@@ -21,10 +23,9 @@ public class GetByIdEndpoint(IDocumentStore store) : EndpointWithoutRequest<Spot
     {
         // Wyciągamy ID bezpośrednio z adresu URL
         var id = Route<Guid>("Id");
-        
-        using var session = _store.QuerySession();
-        var spot = await session.LoadAsync<Spot>(id, ct);
 
+        var spot = await _spotService.GetSpotByIdAsync(id, ct);
+        
         if (spot is null)
         {
             await Send.NotFoundAsync(ct);

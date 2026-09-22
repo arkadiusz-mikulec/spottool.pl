@@ -1,0 +1,91 @@
+﻿@page "/spots/{Id:guid?}"
+@using SpotTool.Web.Features.Shared
+@using SpotTool.Web.Features.Shared.Services
+
+@inject SpotService _spotService
+@* @inject PersistentComponentState ApplicationState *@
+@implements IDisposable
+
+<p>
+    @if(Spots.Count > 0)
+    {
+        @foreach(var spot in Spots)
+        {
+            @:Spot = @spot.Id <br/>
+        }
+    }
+</p>
+
+@code {
+    [Parameter]
+    public Guid? Id {get; set;} = null;
+    IReadOnlyList<DbModels.Spot> Spots { get; set; } = [];
+
+    private CancellationTokenSource cts = new CancellationTokenSource();
+    //private PersistingComponentStateSubscription _subscription;
+
+    @* protected override async Task OnInitializedAsync()
+    {
+        // 1. Rejestrujemy akcję, która wykona się TUŻ PRZED wysłaniem prerenderowanego HTML do przeglądarki
+        _subscription = ApplicationState.RegisterOnPersisting(PersistSpots);
+
+        // 2. Próbujemy odzyskać dane ze stanu (jeśli to drugie uruchomienie po SignalR)
+        if (ApplicationState.TryTakeFromJson<IReadOnlyList<DbModels.Spot>>("spots_data", out var restoredSpots))
+        {
+            // Dane istniały w pamięci podręcznej – przypisujemy je i NIE odpytujemy bazy!
+            Spots = restoredSpots ?? [];
+            Console.WriteLine($"Spots gets from cash: {Spots.Count}");
+        }
+        else
+        {
+            // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
+            if(Id is null)
+                Spots = await _spotService.GetSpotsAsync(cts.Token);
+            else
+            {
+                var spot = await _spotService.GetSpotByIdAsync((Guid)Id!, cts.Token);
+                if(spot is not null)
+                    Spots = [spot];
+            }
+            Console.WriteLine($"Spots get from DB: {Spots.Count}");
+        }
+    } *@
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
+        if(Id is null)
+            Spots = await _spotService.GetSpotsAsync(cts.Token);
+        else
+        {
+            var spot = await _spotService.GetSpotByIdAsync((Guid)Id!, cts.Token);
+            if(spot is not null)
+                Spots = [spot];
+        }
+        Console.WriteLine($"Spots.Count: {Spots.Count}");
+    
+    }
+    // Ta metoda uruchamia się automatycznie pod koniec Prerenderu
+    @* private Task PersistSpots()
+    {
+        // Pakujemy pobraną listę do specjalnego, ukrytego kontenera w HTML
+        ApplicationState.PersistAsJson("spots_data", Spots);
+        return Task.CompletedTask;
+    } *@
+
+    public void Dispose()
+    {
+        // Odpinamy subskrypcję stanu, aby zapobiec wyciekom pamięci
+        //_subscription.Dispose();
+
+        if (cts is { IsCancellationRequested: false })
+        {
+            try
+            {
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException) { /* Ignoruj */ }
+        }
+        cts?.Dispose();
+    }
+}
