@@ -1,4 +1,5 @@
 using Marten;
+using SpotTool.Web.Db;
 
 namespace SpotTool.Web.Features.Shared.Services;
 

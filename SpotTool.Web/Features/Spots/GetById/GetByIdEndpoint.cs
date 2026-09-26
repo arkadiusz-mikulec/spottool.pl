@@ -1,6 +1,6 @@
 using FastEndpoints;
 using Marten;
-using SpotTool.Web.Features.Shared;
+using SpotTool.Web.Db;
 using SpotTool.Web.Features.Shared.Services;
 
 

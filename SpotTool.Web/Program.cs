@@ -5,8 +5,7 @@ using SpotTool.Web;
 using SpotTool.Web.Components;
 using JasperFx;
 using Weasel.Core.Partitioning;
-using System.Data.Common;
-using SpotTool.Web.Features.Shared;
+using SpotTool.Web.Db;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +51,8 @@ builder.Services.AddMarten(opts =>
     }
     
     opts.Schema.For<DbModels.Spot>().Index(x => x.UserId);
+
+    opts.Schema.For<DbModels.SpotStatusHistory>().Index(x => x.SpotId);
 
     opts.Schema.For<DbModels.Offer>().Index(x => x.SpotId);
     opts.Schema.For<DbModels.Offer>().Index(x => x.UserId);

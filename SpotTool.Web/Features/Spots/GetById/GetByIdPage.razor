@@ -1,10 +1,11 @@
 ﻿@page "/spots/{Id:guid?}"
-@using SpotTool.Web.Features.Shared
+@using SpotTool.Web.Db
 @using SpotTool.Web.Features.Shared.Services
 
 @inject SpotService _spotService
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
+
 
 <p>
     @if(Spots.Count > 0)
@@ -14,6 +15,7 @@
             @:Spot = @spot.Id <br/>
         }
     }
+
 </p>
 
 @code {

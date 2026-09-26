@@ -1,7 +1,7 @@
 using FastEndpoints;
 using FluentValidation;
 using Marten;
-using SpotTool.Web.Features.Shared;
+using SpotTool.Web.Db;
 
 
 namespace SpotTool.Web.Features.Spots.CreateFromTms;
@@ -34,12 +34,12 @@ public class CreateEndpoint(IDocumentStore store) : Endpoint<Request, Response> 
     public override async Task HandleAsync(Request req, CancellationToken ct)
     {
         // Logika biznesowa zapisu do Martena/Postgresa
-        Guid id = Guid.CreateVersion7();
-        using var session = _store.LightweightSession();
-        session.Store(new DbModels.Spot { Id = id, UserId = req.UserId, Description = req.Route, TargetedCost = req.Price });
-        await session.SaveChangesAsync(ct);
+         Guid id = Guid.CreateVersion7();
+        // using var session = _store.LightweightSession();
+        // session.Store(new DbModels.Spot { Id = id, UserId = req.UserId, Description = req.Route, TargetedCost = req.Price });
+        // await session.SaveChangesAsync(ct);
 
-        // Błyskawiczna odpowiedź 201 Created
-        await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
+        // // Błyskawiczna odpowiedź 201 Created
+         await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
     }
 }
