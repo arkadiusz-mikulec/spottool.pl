@@ -1,48 +1,72 @@
-using Marten;
-using Marten.Schema;
+using Npgsql.Replication;
 using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Types;
+using static SpotTool.Web.Domain.DbModels;
 
-namespace SpotTool.Web.Db;
-public class SeedData : IInitialData
+namespace SpotTool.Web.Infrastructure;
+
+public static class InitModels
 {
-    public async Task Populate(IDocumentStore store, CancellationToken cancellation)
+    public static readonly Guid spotId = Guid.CreateVersion7();
+    private static readonly Guid winnerOfferId = Guid.CreateVersion7();
+    private static readonly DbModels.UserSnapShot dispo = new(
+        InitModels.Users()[0].Id, InitModels.Users()[0].Role, InitModels.Users()[0].UserStatus, 
+        InitModels.Users()[0].ContactDetails!);
+    private static readonly DbModels.UserSnapShot carrier = new (
+        InitModels.Users()[2].Id, InitModels.Users()[2].Role, InitModels.Users()[2].UserStatus, 
+        InitModels.Users()[2].ContactDetails!);
+    
+    public static DbModels.User[] Users()
     {
-        // Otwieramy lekką sesję do bazy danych
-        await using var session = store.LightweightSession();
-
-        // 1. Sprawdzamy, czy w bazie istnieje już chociaż jeden z tych użytkowników
-        var userExists = await session.Query<DbModels.User>()
-            .AnyAsync(cancellation);
-
-        // Jeśli dane już tam są, przerywamy seeder, aby nie duplikować wpisów
-        if (userExists) return;
-
-        // Przykładowe dane do zasiedlenia bazy
         var initialUsers = new[]
         {
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Arek", "+48881250136", "arkadiusz.mikulec@gmail.com"),  
-                Role = Roles.User.Admin,
+                Role = Role.User.Admin,
                 UserStatus = Status.User.Ok
             },
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Arek", "+48881250000", "amikulec@sostmeier.pl"),  
-                Role = Roles.User.Disponent,
+                Role = Role.User.Disponent,
                 UserStatus = Status.User.Ok
             },
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Biuro", "+48881250111", "biuro@e-site.pl"),  
-                Role = Roles.User.Carrier,
+                Role = Role.User.Carrier,
                 UserStatus = Status.User.Ok
             },
         };
+        return initialUsers;
+    }
+    
+    public static DbModels.Spot[] Spots()
+    {
+        var initialSpots = new[]
+        {
+            new DbModels.Spot {
+                Id = spotId, 
+                Description = "Spot1", TargetedCost = 400, 
+                UserId = dispo.Id, 
+                ContactDetails = dispo.PersonDetail, 
+                CurrentStatus = Status.Spot.ManuallyAccepted,
+                CreatedByUser = dispo,
+                WinnerOfferSnapShot = new DbModels.OfferSnapShot(
+                    (Guid)winnerOfferId!, 
+                    carrier, 
+                    450, 
+                    DateTimeOffset.UtcNow.ToLocalTime(), 
+                    Status.Offer.Negotiated, 
+                    "450e min.", 
+                    DateTimeOffset.UtcNow.AddHours(2).ToLocalTime(),
+                    Currency.Code.EUR
+                )
+            }
+        };
+        return initialSpots;
+    }
 
-        var carrier = new DbModels.UserSnapShot(initialUsers[2].Id, initialUsers[2].Role, initialUsers[2].UserStatus, initialUsers[2].ContactDetails!.Email);
-        var dispo = new DbModels.UserSnapShot(initialUsers[0].Id, initialUsers[0].Role, initialUsers[0].UserStatus, initialUsers[0].ContactDetails!.Email);
-        Guid spotId = Guid.CreateVersion7();
-        Guid winnerOfferId = Guid.CreateVersion7();
-        
-
+    public static DbModels.SpotStatusHistory[] SpotStatusHistory()
+    {
         var initSpotStatusHistory = new []
         {
             new DbModels.SpotStatusHistory
@@ -52,7 +76,7 @@ public class SeedData : IInitialData
                 SpotStatus = Status.Spot.Ok,
                 //CreatedAt = DateTimeOffset.UtcNow.ToLocalTime()
             },
-            new DbModels.SpotStatusHistory
+            new DbModels.SpotStatusHistory  
             {
                 SpotId = spotId,
                 CreatedByUser = carrier,
@@ -88,7 +112,11 @@ public class SeedData : IInitialData
                 //CreatedAt = DateTimeOffset.UtcNow.AddMinutes(19).ToLocalTime()
             }
         };
+        return initSpotStatusHistory;
+    }
 
+    public static DbModels.Offer[] Offers()
+    {
         var initOffers = new[]
         {
             new DbModels.Offer
@@ -125,34 +153,6 @@ public class SeedData : IInitialData
                 IsWinnerOffer = true
             }
         };
-
-        var initialSpots = new[]
-        {
-            new DbModels.Spot {
-                Id = spotId, 
-                Description = "Spot1", TargetedCost = 400, UserId = initialUsers[0].Id, ContactDetails = initialUsers[0].ContactDetails!, 
-                CurrentStatus = Status.Spot.ManuallyAccepted,
-                CreatedByUser = dispo,
-                WinnerOfferSnapShot = new DbModels.OfferSnapShot(
-                    winnerOfferId, 
-                    carrier, 
-                    450, 
-                    DateTimeOffset.UtcNow.ToLocalTime(), 
-                    Status.Offer.Negotiated, 
-                    "450e min.", 
-                    DateTimeOffset.UtcNow.AddHours(2).ToLocalTime(),
-                    Currency.Code.EUR
-                )
-            }
-        };
-
-        // Zapisujemy obiekty (Marten sam obsłuży to jako UPSERT)
-        session.Store(initialUsers);
-        session.Store(initialSpots);
-        session.Store(initSpotStatusHistory);
-        session.Store(initOffers);
-
-        // Zatwierdzamy zmiany w PostgreSQL
-        await session.SaveChangesAsync(cancellation);
+        return initOffers;
     }
 }

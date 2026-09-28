@@ -1,6 +1,6 @@
-using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Types;
 
-namespace SpotTool.Web.Db;
+namespace SpotTool.Web.Domain;
 
 public static class DbModels
 {    
@@ -36,7 +36,7 @@ public static class DbModels
     //W ten sposób mamy info komu wyswietlac oferty (zawsze dla UserId = CreatedForUser.Id)
     //Nic nie modyfikujemy w tej encji tylko dodajemy nowe pola! Pełna historia ofert
     public record OfferSnapShot(Guid Id, UserSnapShot CreatedByUser, decimal Value, DateTimeOffset CreatedAt, Status.Offer Status, string Remark, DateTimeOffset ValidTill, Currency.Code CurrencyCode);
-    public record UserSnapShot(Guid Id, Roles.User Role, Status.User Status, string Email);
+    public record UserSnapShot(Guid Id, Role.User Role, Status.User Status, ContactPersonDetail PersonDetail);
 
     /*
     UPDATE public.mt_doc_dbmodels_offer
@@ -74,7 +74,7 @@ public static class DbModels
         public Guid Id { get; set; } = Guid.CreateVersion7();
         public ContactPersonDetail? ContactDetails { get; set; }
         public Status.User UserStatus { get; set; } = Status.User.New;
-        public Roles.User Role { get; set; } = Roles.User.Other;
+        public Role.User Role { get; set; } = Domain.Types.Role.User.Other;
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToLocalTime();
         public DateTimeOffset? ModifiedAt { get; set; } = null;
     }

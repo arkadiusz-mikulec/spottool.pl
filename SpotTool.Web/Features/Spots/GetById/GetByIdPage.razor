@@ -1,8 +1,8 @@
 ﻿@page "/spots/{Id:guid?}"
-@using SpotTool.Web.Db
-@using SpotTool.Web.Features.Shared.Services
+@using SpotTool.Web.Domain
+@using SpotTool.Web.Features.Shared.Spots
 
-@inject SpotService _spotService
+@inject ISpotService _spotService
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
 

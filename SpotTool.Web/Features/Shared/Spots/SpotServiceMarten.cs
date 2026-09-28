@@ -1,15 +1,15 @@
 using Marten;
-using SpotTool.Web.Db;
+using SpotTool.Web.Domain;
 
-namespace SpotTool.Web.Features.Shared.Services;
+namespace SpotTool.Web.Features.Shared.Spots;
 
-public class SpotService(IDocumentStore store)
+public class SpotServiceMarten(IDocumentSession session): ISpotService
 {
-    private readonly IDocumentStore _store = store;
+    //private readonly IDocumentSession _session = session;
 
     public async Task<DbModels.Spot?> GetSpotByIdAsync(Guid id, CancellationToken ct)
     {
-        using var session = _store.QuerySession();
+        //using var session = _store.QuerySession();
         var spot = await session.LoadAsync<DbModels.Spot>(id, ct);
 
         if (spot is null)
@@ -19,7 +19,7 @@ public class SpotService(IDocumentStore store)
 
     public async Task<IReadOnlyList<DbModels.Spot>> GetSpotsAsync(CancellationToken ct)
     {
-        using var session = _store.QuerySession();
+        //using var session = _store.QuerySession();
         return await session.Query<DbModels.Spot>().ToListAsync(ct);
     }
 }

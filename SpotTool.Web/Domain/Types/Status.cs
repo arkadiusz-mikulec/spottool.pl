@@ -1,4 +1,4 @@
-namespace SpotTool.Web.Domain;
+namespace SpotTool.Web.Domain.Types;
 
 public static class Status
 {
@@ -42,27 +42,5 @@ public static class Status
         Ok,
         Blocked,
         Deleted
-    }
-}
-
-public static class Roles
-{
-    public enum User
-    {
-        Admin,
-        Manager,
-        Disponent,
-        Carrier,
-        Other
-    }
-}
-
-public static class Currency
-{
-    public enum Code
-    {
-        EUR,
-        USD
-        
     }
 }
