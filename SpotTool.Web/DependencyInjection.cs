@@ -11,7 +11,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddWebDependencies(this IServiceCollection services)
     {
-        services.AddSingleton<ISpotService, SpotServiceInMemory>();
+        services.AddScoped<SpotService>();
         
         return services;
     }

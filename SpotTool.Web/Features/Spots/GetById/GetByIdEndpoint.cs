@@ -9,9 +9,8 @@ namespace SpotTool.Web.Features.Spots.GetById;
 
 // --- 2. NOWY ENDPOINT GET (POTRZEBNY JAKO CEL DLA LOCATION) ---
 // Służy maszynom/TMS-om do sprawdzenia, czy Spot na pewno istnieje w bazie
-public class GetByIdEndpoint(ISpotService spotService) : EndpointWithoutRequest<DbModels.Spot>
+public class GetByIdEndpoint(SpotService spotService) : EndpointWithoutRequest<DbModels.Spot>
 {
-    //private readonly ISpotService _spotService = spotService;
     public override void Configure()
     {
         // Trasa przyjmuje {Id}, którego wymaga SendCreatedAtAsync

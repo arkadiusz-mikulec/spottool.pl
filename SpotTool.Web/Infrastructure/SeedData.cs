@@ -11,11 +11,11 @@ public class SeedData : IInitialData
     public async Task Populate(IDocumentStore store, CancellationToken cancellation)
     {
         // Otwieramy lekką sesję do bazy danych
+        // Tutaj IDocumentStore jest potrzebny do mamy konfiguracje wszystkich dokumentów
         await using var session = store.LightweightSession();
 
         // 1. Sprawdzamy, czy w bazie istnieje już chociaż jeden z tych użytkowników
-        var userExists = await session.Query<DbModels.User>()
-            .AnyAsync(cancellation);
+        var userExists = await session.Query<DbModels.User>().AnyAsync(cancellation);
 
         // Jeśli dane już tam są, przerywamy seeder, aby nie duplikować wpisów
         if (userExists) return;

@@ -3,7 +3,7 @@ using SpotTool.Web.Domain;
 
 namespace SpotTool.Web.Features.Shared.Spots;
 
-public class SpotServiceMarten(IDocumentSession session): ISpotService
+public class SpotService(IDocumentSession session)
 {
     //private readonly IDocumentSession _session = session;
 

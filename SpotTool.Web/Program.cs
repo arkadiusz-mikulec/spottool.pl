@@ -32,7 +32,7 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 
-//builder.Services.AddMartenDependencie(builder.Configuration, builder.Environment);
+builder.Services.AddMartenDependencie(builder.Configuration, builder.Environment);
 builder.Services.AddWebDependencies();
 
 //Moje end

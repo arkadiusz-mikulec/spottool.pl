@@ -10,10 +10,10 @@ public static class InitModels
     public static readonly Guid spotId = Guid.CreateVersion7();
     private static readonly Guid winnerOfferId = Guid.CreateVersion7();
     private static readonly DbModels.UserSnapShot dispo = new(
-        InitModels.Users()[0].Id, InitModels.Users()[0].Role, InitModels.Users()[0].UserStatus, 
+        InitModels.Users()[0].Id, InitModels.Users()[0].Role, InitModels.Users()[0].Status, 
         InitModels.Users()[0].ContactDetails!);
     private static readonly DbModels.UserSnapShot carrier = new (
-        InitModels.Users()[2].Id, InitModels.Users()[2].Role, InitModels.Users()[2].UserStatus, 
+        InitModels.Users()[2].Id, InitModels.Users()[2].Role, InitModels.Users()[2].Status, 
         InitModels.Users()[2].ContactDetails!);
     
     public static DbModels.User[] Users()
@@ -23,17 +23,17 @@ public static class InitModels
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Arek", "+48881250136", "arkadiusz.mikulec@gmail.com"),  
                 Role = Role.User.Admin,
-                UserStatus = Status.User.Ok
+                Status = Status.User.Ok
             },
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Arek", "+48881250000", "amikulec@sostmeier.pl"),  
                 Role = Role.User.Disponent,
-                UserStatus = Status.User.Ok
+                Status = Status.User.Ok
             },
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Biuro", "+48881250111", "biuro@e-site.pl"),  
                 Role = Role.User.Carrier,
-                UserStatus = Status.User.Ok
+                Status = Status.User.Ok
             },
         };
         return initialUsers;

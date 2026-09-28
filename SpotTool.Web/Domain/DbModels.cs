@@ -72,8 +72,8 @@ public static class DbModels
     public class User
     {
         public Guid Id { get; set; } = Guid.CreateVersion7();
-        public ContactPersonDetail? ContactDetails { get; set; }
-        public Status.User UserStatus { get; set; } = Status.User.New;
+        public required ContactPersonDetail ContactDetails { get; set; }
+        public Status.User Status { get; set; } = Domain.Types.Status.User.New;
         public Role.User Role { get; set; } = Domain.Types.Role.User.Other;
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToLocalTime();
         public DateTimeOffset? ModifiedAt { get; set; } = null;
