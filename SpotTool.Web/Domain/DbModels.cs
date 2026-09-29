@@ -11,7 +11,7 @@ public static class DbModels
         public Guid UserId {get; set;}
         public string? Description {get; set;} // some kind of titly for a spot?
         public decimal TargetedCost {get; set;} = 0;
-        public required ContactPersonDetail ContactDetails { get; set; } //in case we want to create spot from system user but assing special contact person
+        public ContactPersonDetail? ContactDetails { get; set; } //in case we want to create spot from system user but assing special contact person
         public DateTimeOffset DeadLine { get; set; } = DateTimeOffset.UtcNow.AddMinutes(15).ToLocalTime();
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public Status.Spot CurrentStatus {get; set;} = Status.Spot.NotConfirmed;
@@ -48,7 +48,7 @@ public static class DbModels
         public Guid Id { get; set; } = Guid.CreateVersion7();
         public Guid SpotId { get; set; }
         public Guid UserId {get; set;} // FK for CreatedForUser 
-        public Status.Offer OfferStatus { get; set; } = Status.Offer.Ok;
+        public Status.Offer Status { get; set; } = Types.Status.Offer.Ok;
         public decimal Value { get; set; }
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public bool IsWinnerOffer { get; set; } = false;

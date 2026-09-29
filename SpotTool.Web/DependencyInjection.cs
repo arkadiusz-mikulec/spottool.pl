@@ -4,6 +4,7 @@ using FastEndpoints;
 using SpotTool.Web.Features.Shared.Spots;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Infrastructure;
+using System.Threading.Channels;
 
 namespace SpotTool.Web;
 
@@ -12,6 +13,15 @@ public static class DependencyInjection
     public static IServiceCollection AddWebDependencies(this IServiceCollection services)
     {
         services.AddScoped<SpotService>();
+
+
+        services.AddSingleton<Channel<DbModels.Spot>>(
+            _ => Channel.CreateUnbounded<DbModels.Spot>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                AllowSynchronousContinuations = false
+            })
+        );
         
         return services;
     }
@@ -36,6 +46,9 @@ public static class DependencyInjection
                 opts.AutoCreateSchemaObjects = AutoCreate.None;
             }
             
+            //Dodawanie tylko Index nie wudziela dodatkowej kolumny w dokumencie.
+            //Dla ciezkich zapytan powinienem użyc opts.Schema.For<DbModels.Spot>().Duplicate(x => x.SpotId) oraz .Duplicate(x => x.UserId);
+            //Moge to zrobić pozniej. 
             opts.Schema.For<DbModels.Spot>().Index(x => x.UserId);
 
             opts.Schema.For<DbModels.SpotStatusHistory>().Index(x => x.SpotId);

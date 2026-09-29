@@ -1,0 +1,22 @@
+@host = http://localhost:5017
+
+### Spot create from TMS
+POST {{host}}/api/v1/integrations/spots
+Content-Type: application/json
+
+#Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
+{
+    "UserEmail": "amikulec@sostmeier.pl",
+    "Route": "PL43->DE01",
+    "Price": 500,
+    "Status": 1,
+    "ContactPerson": {
+        "Name": "Test",
+        "Mobile": "+491252213",
+        "Email": "test@op.pl"
+    }
+}
+
+### Get Spot
+@spotId = 01a0ec88-af86-773d-b068-5c2a033ffb04
+GET {{host}}/api/v1/integrations/spots/{{spotId}}

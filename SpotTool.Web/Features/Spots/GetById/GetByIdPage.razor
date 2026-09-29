@@ -1,27 +1,54 @@
 ﻿@page "/spots/{Id:guid?}"
+@using System.Threading.Channels
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Features.Shared.Spots
 
 @inject SpotService _spotService
+@inject Channel<DbModels.Spot> _channel
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
 
 
-<p>
-    @if(Spots.Count > 0)
-    {
-        @foreach(var spot in Spots)
-        {
-            @:Spot = @spot.Id <br/>
-        }
-    }
+@if (Spots.Count == 0)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th aria-label="Temperature in Celsius">Temp. (C)</th>
+                <th aria-label="Temperature in Fahrenheit">Temp. (F)</th>
+                <th>Summary</th>
 
-</p>
+                <th></th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var spot in Spots)
+            {
+                <tr>
+                    <td>@spot.Id</td>
+                    <td>@spot.DeadLine.ToString("g")</td>
+                    <td>@spot.CurrencyCode</td>
+                    <td>@spot.CurrentStatus</td>
+                    <td>@spot.CreatedByUser.Role</td>
+                    <td>@spot.CreatedByUser.Status</td>
+                    <td>@(spot.ContactDetails?.Email ?? spot.CreatedByUser.PersonDetail.Email)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 
 @code {
     [Parameter]
     public Guid? Id {get; set;} = null;
-    IReadOnlyList<DbModels.Spot> Spots { get; set; } = [];
+    List<DbModels.Spot> Spots { get; set; } = [];
 
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription;
@@ -65,6 +92,7 @@
                 Spots = [spot];
         }
         Console.WriteLine($"Spots.Count: {Spots.Count}");
+        _ = ConsumeChannelAsync();
     
     }
     // Ta metoda uruchamia się automatycznie pod koniec Prerenderu
@@ -74,6 +102,28 @@
         ApplicationState.PersistAsJson("spots_data", Spots);
         return Task.CompletedTask;
     } *@
+
+    async Task ConsumeChannelAsync()
+    {
+        try
+        {
+            // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
+            // i nie wywołano anulowania (np. poprzez zamknięcie strony)
+            await foreach (var message in _channel.Reader.ReadAllAsync(cts.Token))
+            {
+                // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
+                await InvokeAsync(() =>
+                {
+                    Spots.Add(message);
+                    StateHasChanged(); // Wymuszenie ponownego renderowania UI
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normalne zachowanie przy opuszczeniu strony
+        }
+    }
 
     public void Dispose()
     {

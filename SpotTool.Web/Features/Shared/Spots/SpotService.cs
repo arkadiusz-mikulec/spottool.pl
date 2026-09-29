@@ -17,9 +17,9 @@ public class SpotService(IDocumentSession session)
         return spot;
     }
 
-    public async Task<IReadOnlyList<DbModels.Spot>> GetSpotsAsync(CancellationToken ct)
+    public async Task<List<DbModels.Spot>> GetSpotsAsync(CancellationToken ct)
     {
         //using var session = _store.QuerySession();
-        return await session.Query<DbModels.Spot>().ToListAsync(ct);
+        return await session.Query<DbModels.Spot>().ToAsyncEnumerable(ct).ToListAsync(ct);
     }
 }
