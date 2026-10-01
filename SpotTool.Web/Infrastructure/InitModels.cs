@@ -137,7 +137,7 @@ public static class InitModels
                 Value = 400,
                 ValidTill = DateTimeOffset.UtcNow.AddHours(1.5).ToLocalTime(),
                 Remarks = "Negotiation for 30 min with target 400e", 
-                Status = Status.Offer.Negotiation
+                Status = Status.Offer.ToNegotiation
             },
             new DbModels.Offer
             {

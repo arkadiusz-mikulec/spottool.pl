@@ -31,7 +31,7 @@ public static class Status
         Ok,
         Rejected,
         Deleted,
-        Negotiation,
+        ToNegotiation,
         Negotiated
     }
 

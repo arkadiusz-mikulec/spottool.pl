@@ -49,6 +49,7 @@ public static class DbModels
         public Guid SpotId { get; set; }
         public Guid UserId {get; set;} // FK for CreatedForUser 
         public Status.Offer Status { get; set; } = Types.Status.Offer.Ok;
+        public Status.OfferValue ValueStatus { get; set; } = Types.Status.OfferValue.Green;
         public decimal Value { get; set; }
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public bool IsWinnerOffer { get; set; } = false;

@@ -1,5 +1,6 @@
 ﻿@page "/spots/{Id:guid?}"
 @using System.Threading.Channels
+@using Marten
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Features.Shared.Spots
 
@@ -7,7 +8,7 @@
 @inject Channel<DbModels.Spot> _channel
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
-
+@inject IDocumentSession session
 
 @if (Spots.Count == 0)
 {
@@ -43,12 +44,37 @@ else
             }
         </tbody>
     </table>
+    <table>
+        <thead>
+            <th>SpotID</th>
+            <th>OfferID</th>
+            <th>Value</th>
+            <th>Status</th>
+            <th>ValueStatus</th>
+        </thead>
+        <tbody>
+            @foreach (var spot in Spots)
+            {
+                @foreach (var offer in Offers.Where(m=>m.SpotId == spot.Id))
+                {
+                    <tr>
+                        <td>@offer.SpotId</td>
+                        <td>@offer.Id</td>
+                        <td>@offer.Value</td>
+                        <td>@offer.Status</td>
+                        <td>@offer.ValueStatus</td>
+                    </tr>
+                }
+            }
+            </tbody>
+    </table>
 }
 
 @code {
     [Parameter]
     public Guid? Id {get; set;} = null;
     List<DbModels.Spot> Spots { get; set; } = [];
+    List<DbModels.Offer> Offers {get; set;} = [];
 
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription;
@@ -84,12 +110,18 @@ else
     {
         // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
         if(Id is null)
+        {
             Spots = await _spotService.GetSpotsAsync(cts.Token);
+            Offers = await session.Query<DbModels.Offer>().ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);
+        }
         else
         {
             var spot = await _spotService.GetSpotByIdAsync((Guid)Id!, cts.Token);
             if(spot is not null)
+            {
                 Spots = [spot];
+                Offers = await session.Query<DbModels.Offer>().Where(m=>m.SpotId == Id).ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);               
+            }
         }
         Console.WriteLine($"Spots.Count: {Spots.Count}");
         _ = ConsumeChannelAsync();
