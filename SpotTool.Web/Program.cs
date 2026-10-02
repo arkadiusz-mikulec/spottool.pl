@@ -5,6 +5,8 @@ using SpotTool.Web;
 using SpotTool.Web.Components;
 using JasperFx;
 using Weasel.Core.Partitioning;
+using Microsoft.AspNetCore.Http.Features;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,7 @@ builder.Services.AddRazorComponents()
 
 //Moje start
 builder.Services.AddFastEndpoints();
+builder.Services.AddMudServices();
 
 //Wlaczamy globalna obsluge ProblemDetails
 // Wersja minimalistyczna w handlerze (przy włączonej konfiguracji globalnej):
@@ -27,8 +30,10 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = ctx =>
     {
         // Każdy błąd w aplikacji dostanie automatycznie ścieżkę i TraceId
-        ctx.ProblemDetails.Instance = ctx.HttpContext.Request.Path;
-        ctx.ProblemDetails.Extensions.TryAdd("traceId", ctx.HttpContext.TraceIdentifier);
+        ctx.ProblemDetails.Instance = $"{ctx.HttpContext.Request.Method} {ctx.HttpContext.Request.Path}";
+        ctx.ProblemDetails.Extensions.TryAdd("requestId", ctx.HttpContext.TraceIdentifier);
+        var activity = ctx.HttpContext.Features.Get<IHttpActivityFeature>()?.Activity;
+        ctx.ProblemDetails.Extensions.TryAdd("traceId", activity?.Id);
     };
 });
 

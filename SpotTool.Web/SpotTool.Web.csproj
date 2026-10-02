@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="FastEndpoints" Version="8.3.0" />
     <PackageReference Include="Marten" Version="9.37.0" />
+    <PackageReference Include="MudBlazor" Version="9.11.0" />
   </ItemGroup>
 
 </Project>

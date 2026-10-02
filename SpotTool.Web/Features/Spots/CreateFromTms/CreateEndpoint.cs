@@ -10,7 +10,7 @@ using SpotTool.Web.Features.Shared.Spots;
 namespace SpotTool.Web.Features.Spots.CreateFromTms;
 
 // 1. Definicja żądania i odpowiedzi (krótkie rekordy)
-public record Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
+public record Request(string UserEmail, string Route, decimal Price, DateTimeOffset? Deadline, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 public record Response(Guid SpotId);
 
 // 2. Automatyczny walidator (FastEndpoints odpala go sam!)
@@ -51,7 +51,8 @@ public class CreateEndpoint(IDocumentSession session, Channel<DbModels.Spot> cha
             TargetedCost = req.Price,
             ContactDetails = req.ContactPerson,
             CreatedByUser = new DbModels.UserSnapShot(user.Id, user.Role, user.Status, user.ContactDetails),
-            CurrentStatus = req.Status ?? Status.Spot.NotConfirmed
+            CurrentStatus = req.Status ?? Status.Spot.NotConfirmed,
+            DeadLine = req.Deadline is null ? DateTimeOffset.UtcNow.AddMinutes(15) : (DateTimeOffset)req.Deadline
         };
 
         session.Store(spot);

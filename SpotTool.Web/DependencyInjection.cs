@@ -5,6 +5,7 @@ using SpotTool.Web.Features.Shared.Spots;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Infrastructure;
 using System.Threading.Channels;
+using SpotTool.Web.Contracts.Spot;
 
 namespace SpotTool.Web;
 
@@ -15,8 +16,24 @@ public static class DependencyInjection
         services.AddScoped<SpotService>();
 
 
-        services.AddSingleton<Channel<DbModels.Spot>>(
+        services.AddSingleton(
             _ => Channel.CreateUnbounded<DbModels.Spot>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                AllowSynchronousContinuations = false
+            })
+        );
+
+        services.AddSingleton(
+            _ => Channel.CreateUnbounded<DbModels.Offer>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                AllowSynchronousContinuations = false
+            })
+        );
+
+        services.AddSingleton(
+            _ => Channel.CreateUnbounded<SpotStatusUpdateRequest>(new UnboundedChannelOptions
             {
                 SingleReader = true,
                 AllowSynchronousContinuations = false

@@ -1,10 +1,11 @@
 using System.Net;
 using System.Reflection.Metadata;
+using System.Threading.Channels;
 using FastEndpoints;
 using FluentValidation;
 using Marten;
 using Marten.Patching;
-using SpotTool.Web.Components;
+using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 
@@ -32,6 +33,7 @@ namespace SpotTool.Web.Features.Offers.Add;
 public record Request(Guid SpotId, Guid CreateByUserId, Guid CreateForUserId, decimal Value, Currency.Code? CurrencyCode, string? Remark, DateTimeOffset? ValidTill);
 public record Response(Guid OfferId);
 
+
 // 2. Automatyczny walidator (FastEndpoints odpala go sam!)
 public class Validator : Validator<Request>
 {
@@ -43,7 +45,7 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class AddEndpoint(IDocumentSession session, Channel<SpotStatusUpdateRequest> channel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -68,14 +70,10 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
         {
             await Send.ResultAsync(TypedResults.Problem(
                 detail: "Offer cannot be accepted.",
-                statusCode: (int)HttpStatusCode.BadRequest,
+                statusCode: StatusCodes.Status400BadRequest,
                 title: "Bad request - add offer"
             ));
-            // await Send.ResultAsync(Results.Problem(
-            //     detail: "",
-            //     statusCode: (int)HttpStatusCode.BadRequest,
-            //     title: ""
-            // ));
+            
             return;
         }
 
@@ -143,6 +141,7 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
         UpdateOffers(session, offersToUpdate);
 
         var nextStatus = NextSpotStatus(spot, req.Value);
+        bool sendChannelSignal = false;
         if(spot.CurrentStatus != nextStatus)
         {
             spot.CurrentStatus = nextStatus;
@@ -153,11 +152,14 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
             {
                 SpotId = req.SpotId,
                 SpotStatus = nextStatus
-            });                    
+            });
+            sendChannelSignal = true;                    
         }
 
         await session.SaveChangesAsync(ct);
 
+        if(sendChannelSignal)
+            await channel.Writer.WriteAsync(new SpotStatusUpdateRequest(spot.Id, nextStatus), ct);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);
@@ -193,6 +195,10 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
     //1. Pobieramy najnizsza i dla pozostałych wyliczamy % roznicy 
     //2. Jezeli roznica jest mniejsza niz 10% 
     //
+    private static decimal CalculateDifferent(decimal addedValue, decimal existedMinOfferValue, bool calculateInPercentage = true)
+    {
+        return calculateInPercentage ? 100 - (addedValue * 100 / existedMinOfferValue) : addedValue - existedMinOfferValue;
+    }
     private static (Status.OfferValue, decimal) SetOfferValueStatus(decimal value, DbModels.Offer? minOffer)
     {
         //int maxCountForOneGreenOffer = 3;
@@ -201,8 +207,8 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
         if(minOffer is null)
             return result;
 
-        decimal different = minOffer.Value - value;
-        result = (CalculateOfferStatus(different), different);
+        decimal different = CalculateDifferent(value, minOffer.Value);
+        result = (CalculateOfferStatus(new CalculationModel(different)), different);
 
         return result;
     }
@@ -212,9 +218,9 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
         Dictionary<Guid, (Status.OfferValue, decimal difference)> offersToUpdate = [];
         foreach (var item in restOfOffers)
         {
-            decimal difference = minOffer - item.Value;
+            decimal difference = CalculateDifferent(minOffer, item.Value);
             
-            var newStatus = CalculateOfferStatus(difference);
+            var newStatus = CalculateOfferStatus(new CalculationModel(difference));
 
             if(newStatus != item.ValueStatus)
                 offersToUpdate[item.Id] = (newStatus, difference);
@@ -230,10 +236,21 @@ public class AddEndpoint(IDocumentSession session) : Endpoint<Request, Response>
                 .Set(m=>m.ValueStatus, offersToUpdate[item].newStatus);
         }
     }
-    private static Status.OfferValue CalculateOfferStatus(decimal difference) => difference switch
+    private record CalculationModel(decimal Difference, bool CalculateInPercentage = true);
+    private static Status.OfferValue CalculateOfferStatus(CalculationModel model) => model switch
     {
-        <= -25 => Status.OfferValue.Red,
-        >= -24 and <= -11 => Status.OfferValue.Yellow,
+        { Difference: <= -10, CalculateInPercentage: true } => Status.OfferValue.Red,
+        { Difference: <= -50, CalculateInPercentage: false } => Status.OfferValue.Red,
+        { Difference: >= -9 and <= -6, CalculateInPercentage: true } => Status.OfferValue.Yellow,
+        { Difference: >= -49 and <= -25, CalculateInPercentage: false } => Status.OfferValue.Yellow,
         _ => Status.OfferValue.Green  
-    }; 
+    };
+
+    // private static Status.OfferValue CalculateOfferStatus(decimal difference) => difference switch
+    // {
+    //     <= -10 => Status.OfferValue.Red,
+    //     >= -9 and <= -6 => Status.OfferValue.Yellow,
+    //     _ => Status.OfferValue.Green  
+    // }; 
+
 }

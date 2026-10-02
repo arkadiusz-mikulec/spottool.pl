@@ -14,7 +14,8 @@ Content-Type: application/json
         "Name": "Test",
         "Mobile": "+491252213",
         "Email": "test@op.pl"
-    }
+    },
+    "Deadline" : "2026-10-02T10:00:00+02:00"
 }
 
 ### Get Spot
@@ -22,7 +23,7 @@ Content-Type: application/json
 GET {{host}}/api/v1/integrations/spots/{{spotId}}
 
 ### Add Offer
-@spotId = 01a0f795-7eb8-7740-a642-627fa855b6fd
+@spotId = 01a0faec-b0e4-77db-957c-c3a143ef8a45
 POST {{host}}/api/v1/integrations/offers
 Content-Type: application/json
 
@@ -30,5 +31,5 @@ Content-Type: application/json
     "SpotId": "{{spotId}}",
     "CreateByUserId": "01a0f794-41dc-7fd0-ab64-159c9ec07659",
     "CreateForUserId": "01a0f794-41dc-7fd0-ab64-159c9ec07659",
-    "Value": 61
+    "Value": 600
 }
