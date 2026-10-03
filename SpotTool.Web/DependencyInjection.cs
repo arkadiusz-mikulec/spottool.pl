@@ -6,6 +6,7 @@ using SpotTool.Web.Domain;
 using SpotTool.Web.Infrastructure;
 using System.Threading.Channels;
 using SpotTool.Web.Contracts.Spot;
+using SpotTool.Web.Domain.BgServices;
 
 namespace SpotTool.Web;
 
@@ -19,7 +20,7 @@ public static class DependencyInjection
         services.AddSingleton(
             _ => Channel.CreateUnbounded<DbModels.Spot>(new UnboundedChannelOptions
             {
-                SingleReader = true,
+                SingleReader = false,
                 AllowSynchronousContinuations = false
             })
         );
@@ -40,6 +41,7 @@ public static class DependencyInjection
             })
         );
         
+        services.AddHostedService<SpotBgService>();
         return services;
     }
 
