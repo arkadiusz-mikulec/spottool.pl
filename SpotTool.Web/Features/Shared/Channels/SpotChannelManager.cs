@@ -23,6 +23,8 @@ public class SpotChannelManager()
         return userChannel.Reader;
     }
 
+   
+
 
     // Wyrejestrowanie użytkownika – bezpiecznie zamykamy jego personalny kanał
     public void Unsubscribe(Guid connectionId)

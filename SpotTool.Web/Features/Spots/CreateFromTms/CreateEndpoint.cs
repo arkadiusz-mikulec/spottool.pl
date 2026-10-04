@@ -5,7 +5,6 @@ using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
-using SpotTool.Web.Features.Shared.Spots;
 
 
 namespace SpotTool.Web.Features.Spots.CreateFromTms;
@@ -25,9 +24,10 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class CreateEndpoint(IDocumentSession session, 
-    SpotChannelManager spotChannelManager,
-    Channel<Guid> wakeupChannel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class CreateEndpoint(
+    IDocumentSession _session, 
+    SpotChannelManager _spotChannelManager,
+    Channel<Guid> _wakeupChannel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     
     public override void Configure()
@@ -40,7 +40,7 @@ public class CreateEndpoint(IDocumentSession session,
     {
         // Logika biznesowa zapisu do Martena/Postgresa
         Guid id = Guid.CreateVersion7();
-        var user = await session.Query<DbModels.User>().Where(m=>m.ContactDetails.Email.Equals(req.UserEmail, StringComparison.CurrentCultureIgnoreCase)).FirstOrDefaultAsync(ct);
+        var user = await _session.Query<DbModels.User>().Where(m=>m.ContactDetails.Email.Equals(req.UserEmail, StringComparison.CurrentCultureIgnoreCase)).FirstOrDefaultAsync(ct);
         if(user is null)
             await Send.NotFoundAsync(ct);
         
@@ -58,17 +58,17 @@ public class CreateEndpoint(IDocumentSession session,
             DeadLine = req.Deadline is null ? DateTimeOffset.UtcNow.AddMinutes(15) : (DateTimeOffset)req.Deadline
         };
 
-        session.Store(spot);
-        session.Store(new DbModels.SpotStatusHistory
+        _session.Store(spot);
+        _session.Store(new DbModels.SpotStatusHistory
         {
            SpotId = id,
            SpotStatus = req.Status ?? Status.Spot.NotConfirmed
         });
 
-        await session.SaveChangesAsync(ct);
+        await _session.SaveChangesAsync(ct);
 
-        await spotChannelManager.DistributeSpotAsync(spot, [], ct);
-        await wakeupChannel.Writer.WriteAsync(id, ct);
+        await _spotChannelManager.DistributeSpotAsync(spot, [], ct);
+        await _wakeupChannel.Writer.WriteAsync(id, ct);
         
         // Błyskawiczna odpowiedź 201 Created
          await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
