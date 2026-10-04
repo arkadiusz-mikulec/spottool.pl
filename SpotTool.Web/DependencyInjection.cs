@@ -7,6 +7,7 @@ using SpotTool.Web.Infrastructure;
 using System.Threading.Channels;
 using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain.BgServices;
+using SpotTool.Web.Features.Shared.Channels;
 
 namespace SpotTool.Web;
 
@@ -16,11 +17,11 @@ public static class DependencyInjection
     {
         services.AddScoped<SpotService>();
 
-
+        //Service used for SpotBdService to wakeup
         services.AddSingleton(
-            _ => Channel.CreateUnbounded<DbModels.Spot>(new UnboundedChannelOptions
+            _ => Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions
             {
-                SingleReader = false,
+                SingleReader = true,
                 AllowSynchronousContinuations = false
             })
         );
@@ -33,13 +34,15 @@ public static class DependencyInjection
             })
         );
 
-        services.AddSingleton(
-            _ => Channel.CreateUnbounded<SpotStatusUpdateRequest>(new UnboundedChannelOptions
-            {
-                SingleReader = true,
-                AllowSynchronousContinuations = false
-            })
-        );
+        // services.AddSingleton(
+        //     _ => Channel.CreateUnbounded<SpotStatusUpdateRequest>(new UnboundedChannelOptions
+        //     {
+        //         SingleReader = true,
+        //         AllowSynchronousContinuations = false
+        //     })
+        // );
+        
+        services.AddSingleton<SpotChannelManager>();
         
         services.AddHostedService<SpotBgService>();
         return services;

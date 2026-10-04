@@ -8,6 +8,7 @@ using Marten.Patching;
 using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Channels;
 
 
 
@@ -45,7 +46,8 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class AddEndpoint(IDocumentSession session, Channel<SpotStatusUpdateRequest> channel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class AddEndpoint(IDocumentSession session, 
+    SpotChannelManager spotChannelMenager) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -159,7 +161,7 @@ public class AddEndpoint(IDocumentSession session, Channel<SpotStatusUpdateReque
         await session.SaveChangesAsync(ct);
 
         if(sendChannelSignal)
-            await channel.Writer.WriteAsync(new SpotStatusUpdateRequest(spot.Id, nextStatus), ct);
+            await spotChannelMenager.DistributeSpotStatusAsync(spot, nextStatus, [], ct);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);

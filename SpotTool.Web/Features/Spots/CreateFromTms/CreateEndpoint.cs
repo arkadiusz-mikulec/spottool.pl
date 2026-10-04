@@ -4,6 +4,7 @@ using FluentValidation;
 using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Channels;
 using SpotTool.Web.Features.Shared.Spots;
 
 
@@ -24,7 +25,9 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class CreateEndpoint(IDocumentSession session, Channel<DbModels.Spot> channel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class CreateEndpoint(IDocumentSession session, 
+    SpotChannelManager spotChannelManager,
+    Channel<Guid> wakeupChannel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     
     public override void Configure()
@@ -64,7 +67,9 @@ public class CreateEndpoint(IDocumentSession session, Channel<DbModels.Spot> cha
 
         await session.SaveChangesAsync(ct);
 
-        await channel.Writer.WriteAsync(spot, ct);
+        await spotChannelManager.DistributeSpotAsync(spot, [], ct);
+        await wakeupChannel.Writer.WriteAsync(id, ct);
+        
         // Błyskawiczna odpowiedź 201 Created
          await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
     }

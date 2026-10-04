@@ -4,12 +4,11 @@
 @using MudBlazor
 @using SpotTool.Web.Contracts.Spot
 @using SpotTool.Web.Domain
+@using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
 
 @inject SpotService _spotService
-@inject Channel<DbModels.Spot> _channel
-@inject Channel<DbModels.Offer> _offerChannel
-@inject Channel<SpotStatusUpdateRequest> _spotStatusChannel
+@inject SpotChannelManager _spotChannelMenager
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
 @inject IDocumentSession session
@@ -103,8 +102,10 @@ else
 @code {
     [Parameter]
     public Guid? Id {get; set;} = null;
+    Guid connectionId = Guid.CreateVersion7();
     List<DbModels.Spot> Spots { get; set; } = [];
     List<DbModels.Offer> Offers {get; set;} = [];
+    
 
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription;
@@ -138,6 +139,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Guid userId = Guid.CreateVersion7();
+        List<Guid> usersGroups = [];
         Console.WriteLine("Init!");
         // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
         if(Id is null)
@@ -155,9 +158,8 @@ else
             }
         }
         Console.WriteLine($"Spots.Count: {Spots.Count}");
-        _ = ConsumeChannelAsync();
-        _ = ConsumeSpotStatusChannelAsync();
-    
+
+        _ = ConsumeSpotChannelsAsync(_spotChannelMenager.Subscribe(connectionId, userId, usersGroups));
     }
     // Ta metoda uruchamia się automatycznie pod koniec Prerenderu
     @* private Task PersistSpots()
@@ -167,19 +169,32 @@ else
         return Task.CompletedTask;
     } *@
 
-    async Task ConsumeChannelAsync()
+    async Task ConsumeSpotChannelsAsync(ChannelReader<SpotChannelManager.SpotSignal> reader)
     {
         try
         {
             // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
             // i nie wywołano anulowania (np. poprzez zamknięcie strony)
-            await foreach (var message in _channel.Reader.ReadAllAsync(cts.Token))
+            await foreach (var signal in reader.ReadAllAsync(cts.Token))
             {
                 // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
                 await InvokeAsync(() =>
                 {
-                    Console.WriteLine("Spot consuming");
-                    Spots.Add(message);
+                    Console.WriteLine("Msg consuming");
+                    switch(signal.Type)
+                    {
+                        case SpotChannelManager.SignalType.SpotAdded:
+                            if (signal.Spot != null) Spots.Add(signal.Spot);
+                            break;
+
+                        case SpotChannelManager.SignalType.SpotStatusUpdate:
+                            if (signal.StatusUpdate != null)
+                            {
+                                var spot = Spots.FirstOrDefault(s => s.Id == signal.StatusUpdate.SpotId);
+                                if (spot != null) spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
+                            }
+                            break;
+                    }
                     StateHasChanged(); // Wymuszenie ponownego renderowania UI
                 });
             }
@@ -200,43 +215,9 @@ else
         }
     }
     
-    async Task ConsumeSpotStatusChannelAsync()
-    {
-        try
-        {
-            // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
-            // i nie wywołano anulowania (np. poprzez zamknięcie strony)
-            await foreach (var message in _spotStatusChannel.Reader.ReadAllAsync(cts.Token))
-            {
-                // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
-                await InvokeAsync(() =>
-                {
-                    int index = Spots.FindIndex(m=>m.Id == message.SpotId);
-                    if(index == -1)
-                        return;
+    
 
-                    Spots[index].CurrentStatus = message.Status;
-                    StateHasChanged(); // Wymuszenie ponownego renderowania UI
-                });
-            }
-            
-        }
-        catch (OperationCanceledException)
-        {
-            // Normalne zachowanie przy opuszczeniu strony
-        }
-        catch (Exception)
-        {
-            // KLUCZOWE: Zapisujemy błąd w logach aplikacji (np. Serilog, NLog, Console)
-            //Logger.LogError(ex, "Wystąpił krytyczny błąd w tle podczas czytania z Channel.");
-            
-            // Opcjonalnie: Możesz ustawić flagę błędu w UI, aby powiadomić użytkownika
-            //HasError = true;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    async Task ConsumeOfferChannelAsync()
+    @* async Task ConsumeOfferChannelAsync()
     {
         try
         {
@@ -260,7 +241,7 @@ else
         {
             // Normalne zachowanie przy opuszczeniu strony
         }
-    }
+    } *@
 
     public void Dispose()
     {
@@ -276,5 +257,7 @@ else
             catch (ObjectDisposedException) { /* Ignoruj */ }
         }
         cts?.Dispose();
+        // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
+        _spotChannelMenager.Unsubscribe(connectionId);
     }
 }
