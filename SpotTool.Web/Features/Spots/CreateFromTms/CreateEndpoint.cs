@@ -20,6 +20,16 @@ public class Validator : Validator<Request>
     {
         RuleFor(x => x.Route).NotEmpty().WithMessage("Trasa jest wymagana!");
         RuleFor(x => x.Price).GreaterThanOrEqualTo(0).WithMessage("Wartość frachtu musi być dodatnia!");
+        RuleFor(x => x.Status)
+            .Must(status => status is null or Status.Spot.NotConfirmed or Status.Spot.Ok)
+            .WithMessage("Status musi być pusty, albo wynosić NotConfirmed lub Ok.");
+        
+        // alternatywa. Uruchomi sie tylko jeżeli wartośc statusu nie jest null
+        RuleFor(x => x.Status)
+            .Must(status => status is Status.Spot.NotConfirmed or Status.Spot.Ok)
+            .When(x => x.Status is not null) // Reguła działa tylko gdy status ma wartość
+            .WithMessage("Status musi być pusty, albo wynosić NotConfirmed lub Ok.");
+
     }
 }
 
@@ -67,8 +77,9 @@ public class CreateEndpoint(
 
         await _session.SaveChangesAsync(ct);
 
-        await _spotChannelManager.DistributeSpotAsync(spot, [], ct);
-        await _wakeupChannel.Writer.WriteAsync(id, ct);
+        await _spotChannelManager.DistributeSpotAsync(spot, ct);
+        if(spot.CurrentStatus == Status.Spot.Ok)
+            await _wakeupChannel.Writer.WriteAsync(id, ct);
         
         // Błyskawiczna odpowiedź 201 Created
          await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);

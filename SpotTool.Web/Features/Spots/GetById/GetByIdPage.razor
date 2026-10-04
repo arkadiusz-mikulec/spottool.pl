@@ -1,8 +1,7 @@
-﻿@page "/spots/{Id:guid?}"
+﻿@page "/spots/{UserId:int}/{Id:guid?}"
 @using System.Threading.Channels
 @using Marten
 @using MudBlazor
-@using SpotTool.Web.Contracts.Spot
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
@@ -19,32 +18,6 @@
 }
 else
 {
-    
-    <table class="table">
-        <thead>
-            <th>SpotID</th>
-            <th>OfferID</th>
-            <th>Value</th>
-            <th>Status</th>
-            <th>ValueStatus</th>
-        </thead>
-        <tbody>
-            @foreach (var spot in Spots)
-            {
-                @foreach (var offer in Offers.Where(m=>m.SpotId == spot.Id))
-                {
-                    <tr>
-                        <td>@offer.SpotId</td>
-                        <td>@offer.Id</td>
-                        <td>@offer.Value</td>
-                        <td>@offer.Status</td>
-                        <td>@offer.ValueStatus</td>
-                    </tr>
-                }
-            }
-            </tbody>
-    </table>
-}
 
 <MudGrid>
     <MudItem xs="12">
@@ -98,51 +71,30 @@ else
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=3</MudPaper>
     </MudItem>
 </MudGrid>
-
+}
 @code {
     [Parameter]
     public Guid? Id {get; set;} = null;
-    Guid connectionId = Guid.CreateVersion7();
+    [Parameter]
+    public int UserId {get; set;} = 1;
     List<DbModels.Spot> Spots { get; set; } = [];
     List<DbModels.Offer> Offers {get; set;} = [];
-    
+    Guid userId {get; set;}
 
     private CancellationTokenSource cts = new CancellationTokenSource();
-    //private PersistingComponentStateSubscription _subscription;
+    //private PersistingComponentStateSubscription _subscription; #Checkit
 
-    @* protected override async Task OnInitializedAsync()
-    {
-        // 1. Rejestrujemy akcję, która wykona się TUŻ PRZED wysłaniem prerenderowanego HTML do przeglądarki
-        _subscription = ApplicationState.RegisterOnPersisting(PersistSpots);
-
-        // 2. Próbujemy odzyskać dane ze stanu (jeśli to drugie uruchomienie po SignalR)
-        if (ApplicationState.TryTakeFromJson<IReadOnlyList<DbModels.Spot>>("spots_data", out var restoredSpots))
-        {
-            // Dane istniały w pamięci podręcznej – przypisujemy je i NIE odpytujemy bazy!
-            Spots = restoredSpots ?? [];
-            Console.WriteLine($"Spots gets from cash: {Spots.Count}");
-        }
-        else
-        {
-            // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
-            if(Id is null)
-                Spots = await _spotService.GetSpotsAsync(cts.Token);
-            else
-            {
-                var spot = await _spotService.GetSpotByIdAsync((Guid)Id!, cts.Token);
-                if(spot is not null)
-                    Spots = [spot];
-            }
-            Console.WriteLine($"Spots get from DB: {Spots.Count}");
-        }
-    } *@
 
     protected override async Task OnInitializedAsync()
     {
-        Guid userId = Guid.CreateVersion7();
+        userId = UserId == 1 ? new Guid("01a0f794-41d9-706f-837e-6030026ec389") : new Guid("01a0f794-41dc-7d4f-a404-4af8db888226");
+
+        // To sa grupy do ktorej przypisany jest carrier.
+        // Testujemy admina i dispo wiec oni nie sa w grupach przewoznikow
         List<Guid> usersGroups = [];
-        Console.WriteLine("Init!");
-        // Dane nie istniały (to jest PIERWSZE uruchomienie / Prerender) – odpytujemy bazę
+     
+        @* //tutaj musi byc filtrowanie po userId.
+        //Uwaga mamy juz spotchannelManager musimy go jakos wykozystac
         if(Id is null)
         {
             Spots = await _spotService.GetSpotsAsync(cts.Token);
@@ -156,18 +108,12 @@ else
                 Spots = [spot];
                 Offers = await session.Query<DbModels.Offer>().Where(m=>m.SpotId == Id).ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);               
             }
-        }
-        Console.WriteLine($"Spots.Count: {Spots.Count}");
-
-        _ = ConsumeSpotChannelsAsync(_spotChannelMenager.Subscribe(connectionId, userId, usersGroups));
+        } *@
+        var reader = _spotChannelMenager.Subscribe(userId, usersGroups);
+        await _spotChannelMenager.InitSpotsAsync(cts.Token);
+        
+        _ = ConsumeSpotChannelsAsync(reader);
     }
-    // Ta metoda uruchamia się automatycznie pod koniec Prerenderu
-    @* private Task PersistSpots()
-    {
-        // Pakujemy pobraną listę do specjalnego, ukrytego kontenera w HTML
-        ApplicationState.PersistAsJson("spots_data", Spots);
-        return Task.CompletedTask;
-    } *@
 
     async Task ConsumeSpotChannelsAsync(ChannelReader<SpotChannelManager.SpotSignal> reader)
     {
@@ -180,18 +126,25 @@ else
                 // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
                 await InvokeAsync(() =>
                 {
-                    Console.WriteLine("Msg consuming");
                     switch(signal.Type)
                     {
                         case SpotChannelManager.SignalType.SpotAdded:
-                            if (signal.Spot != null) Spots.Add(signal.Spot);
+                            if (signal.Spot != null)
+                            { 
+                                var spot = Spots.FirstOrDefault(s => s.Id == signal.Spot.Id);
+                                if (spot is null)
+                                    Spots.Add(signal.Spot);
+                                else 
+                                    spot.CurrentStatus = signal.Spot.CurrentStatus; 
+                            }
                             break;
 
                         case SpotChannelManager.SignalType.SpotStatusUpdate:
                             if (signal.StatusUpdate != null)
                             {
                                 var spot = Spots.FirstOrDefault(s => s.Id == signal.StatusUpdate.SpotId);
-                                if (spot != null) spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
+                                if (spot != null) 
+                                    spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
                             }
                             break;
                     }
@@ -258,6 +211,6 @@ else
         }
         cts?.Dispose();
         // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
-        _spotChannelMenager.Unsubscribe(connectionId);
+        _spotChannelMenager.Unsubscribe(userId);
     }
 }

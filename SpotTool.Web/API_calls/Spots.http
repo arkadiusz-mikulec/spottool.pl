@@ -6,16 +6,15 @@ Content-Type: application/json
 
 #Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 {
-    "UserEmail": "amikulec@sostmeier.pl",
+    "UserEmail": "arkadiusz.mikulec@gmail.com",
     "Route": "PL43->DE01",
     "Price": 500,
-    "Status": 1,
     "ContactPerson": {
         "Name": "Test",
         "Mobile": "+491252213",
         "Email": "test@op.pl"
     },
-    "Deadline" : "2026-10-03T08:14:00+02:00"
+    "Deadline" : "2026-10-04T17:42:00+02:00"
 }
 
 ### Get Spot
@@ -33,3 +32,10 @@ Content-Type: application/json
     "CreateForUserId": "01a0f794-41dc-7fd0-ab64-159c9ec07659",
     "Value": 600
 }
+
+###Spot approval
+
+@spotId = 01a10793-a7fd-7939-b8a4-45854b6f9aec
+POST {{host}}/api/v1/integrations/spot/{{spotId}}/approve
+
+

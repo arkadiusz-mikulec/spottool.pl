@@ -46,8 +46,8 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class AddEndpoint(IDocumentSession session, 
-    SpotChannelManager spotChannelMenager) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class AddEndpoint(IDocumentSession _session, 
+    SpotChannelManager _spotChannelMenager) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -61,7 +61,7 @@ public class AddEndpoint(IDocumentSession session,
     {
         // Logika biznesowa zapisu do Martena/Postgresa
         
-        var spot = await session.Query<DbModels.Spot>().FirstOrDefaultAsync(m=>m.Id == req.SpotId, ct);
+        var spot = await _session.Query<DbModels.Spot>().FirstOrDefaultAsync(m=>m.Id == req.SpotId, ct);
         if(spot is null)
         {
             await Send.NotFoundAsync(ct);
@@ -79,7 +79,7 @@ public class AddEndpoint(IDocumentSession session,
             return;
         }
 
-        var createdForUser = await session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateForUserId, ct);
+        var createdForUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateForUserId, ct);
         if(createdForUser is null)
         {
             await Send.NotFoundAsync(ct);
@@ -92,7 +92,7 @@ public class AddEndpoint(IDocumentSession session,
         if(!req.CreateByUserId.Equals(req.CreateForUserId))
         {
             offerStatus = Status.Offer.ToNegotiation;
-            createdByUser = await session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateByUserId, ct);
+            createdByUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateByUserId, ct);
             if(createdByUser is null)
             {
                 await Send.NotFoundAsync(ct);
@@ -101,7 +101,7 @@ public class AddEndpoint(IDocumentSession session,
     
         } 
 
-        var spotOffers = await session.Query<DbModels.Offer>()
+        var spotOffers = await _session.Query<DbModels.Offer>()
             .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
             .OrderBy(m=>m.Value)
             .ToAsyncEnumerable(ct)
@@ -137,10 +137,10 @@ public class AddEndpoint(IDocumentSession session,
             Status = offerStatus,
             ValueStatus = SetOfferValueStatus(req.Value, minOffer).Item1
         };
-        session.Store(offer);
+        _session.Store(offer);
 
         var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. spotOffers.Where(m=>m.Value > minOfferValue)]);
-        UpdateOffers(session, offersToUpdate);
+        UpdateOffers(_session, offersToUpdate);
 
         var nextStatus = NextSpotStatus(spot, req.Value);
         bool sendChannelSignal = false;
@@ -148,9 +148,9 @@ public class AddEndpoint(IDocumentSession session,
         {
             spot.CurrentStatus = nextStatus;
             
-            session.Update(spot);
-            //session.Patch<DbModels.Spot>(spot.Id).Set(m=>m.CurrentStatus, nextStatus);
-            session.Store(new DbModels.SpotStatusHistory
+            _session.Update(spot);
+            //_session.Patch<DbModels.Spot>(spot.Id).Set(m=>m.CurrentStatus, nextStatus);
+            _session.Store(new DbModels.SpotStatusHistory
             {
                 SpotId = req.SpotId,
                 SpotStatus = nextStatus
@@ -158,10 +158,10 @@ public class AddEndpoint(IDocumentSession session,
             sendChannelSignal = true;                    
         }
 
-        await session.SaveChangesAsync(ct);
+        await _session.SaveChangesAsync(ct);
 
         if(sendChannelSignal)
-            await spotChannelMenager.DistributeSpotStatusAsync(spot, nextStatus, [], ct);
+            await _spotChannelMenager.DistributeSpotStatusAsync(spot, nextStatus, ct);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);
@@ -230,11 +230,11 @@ public class AddEndpoint(IDocumentSession session,
         return offersToUpdate;
     }
 
-    private static void UpdateOffers(IDocumentSession session, Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> offersToUpdate)
+    private static void UpdateOffers(IDocumentSession _session, Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> offersToUpdate)
     {
         foreach (var item in offersToUpdate.Keys)
         {
-            session.Patch<DbModels.Offer>(item)
+            _session.Patch<DbModels.Offer>(item)
                 .Set(m=>m.ValueStatus, offersToUpdate[item].newStatus);
         }
     }
