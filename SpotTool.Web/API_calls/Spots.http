@@ -14,7 +14,7 @@ Content-Type: application/json
         "Mobile": "+491252213",
         "Email": "test@op.pl"
     },
-    "Deadline" : "2026-10-04T17:42:00+02:00"
+    "Deadline" : "2026-10-05T16:40:15+00:00"
 }
 
 ### Get Spot
@@ -22,7 +22,7 @@ Content-Type: application/json
 GET {{host}}/api/v1/integrations/spots/{{spotId}}
 
 ### Add Offer
-@spotId = 01a0faec-b0e4-77db-957c-c3a143ef8a45
+@spotId = 01a10b33-45b1-793d-ada2-28acc7c3c9b1
 POST {{host}}/api/v1/integrations/offers
 Content-Type: application/json
 
@@ -35,7 +35,18 @@ Content-Type: application/json
 
 ###Spot approval
 
-@spotId = 01a10793-a7fd-7939-b8a4-45854b6f9aec
+@spotId = 01a10c88-3785-7cb7-bcdd-539980658ef5
 POST {{host}}/api/v1/integrations/spot/{{spotId}}/approve
+
+### Update spot deadlina
+@spotId = 01a10c88-3785-7cb7-bcdd-539980658ef5
+PATCH  {{host}}/api/v1/integrations/spot/update-deadlina
+Content-Type: application/json
+
+{
+    "SpotId": "{{spotId}}",
+    "SpotDeadline": "2026-10-05T16:55:12-02:00"
+}
+
 
 

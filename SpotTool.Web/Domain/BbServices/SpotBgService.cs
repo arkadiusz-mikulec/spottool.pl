@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Marten;
+using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
 using SpotTool.Web.Features.Shared.Spots;
@@ -12,11 +13,13 @@ public class SpotBgService : BackgroundService
     private readonly Channel<Guid> _wakeupChannel;
     private readonly IServiceProvider _serviceProvider;
     private readonly SpotChannelManager _spotChannelManager;
-    public SpotBgService(IServiceProvider serviceProvider, Channel<Guid> wakeupChannel, SpotChannelManager spotChannelManager)
+    private readonly IDateTimeProvider _datetimeProvoder;
+    public SpotBgService(IServiceProvider serviceProvider, Channel<Guid> wakeupChannel, SpotChannelManager spotChannelManager, IDateTimeProvider datetimeProvoder)
     {
         _serviceProvider = serviceProvider;
         _wakeupChannel = wakeupChannel;
         _spotChannelManager = spotChannelManager;
+        _datetimeProvoder = datetimeProvoder;
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -25,19 +28,19 @@ public class SpotBgService : BackgroundService
             Console.WriteLine("START");
 
             var nextSpotDeadline = await GetNextSpotDeadlineAsync(stoppingToken);
-            TimeSpan delay = nextSpotDeadline.HasValue ? nextSpotDeadline.Value - DateTimeOffset.UtcNow : TimeSpan.FromMilliseconds(-1);
+            TimeSpan delay = nextSpotDeadline.HasValue ? nextSpotDeadline.Value - _datetimeProvoder.Now() : TimeSpan.FromMilliseconds(-1);
 
             if(delay < TimeSpan.Zero && nextSpotDeadline is not null)
                 delay = TimeSpan.Zero;
 
-            Console.WriteLine($"Now: {DateTimeOffset.UtcNow}, SpotDL: {nextSpotDeadline}, Next call for: {delay}");
+            Console.WriteLine($"Now: {_datetimeProvoder.Now()}, SpotDLHasValue: {nextSpotDeadline.HasValue}, Next call for: {delay}");
 
             // 2. Czekaj na nadejście budzika LUB na pojawienie się nowego spota w kanale
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             Task timerTask = Task.Delay(delay, cts.Token);
             var channelTask = _wakeupChannel.Reader.WaitToReadAsync(cts.Token).AsTask();
 
-            Task completedTask = await Task.WhenAny(timerTask, channelTask);
+            Task completedTask = await Task.WhenAny([timerTask, channelTask]);    //WhenAny(timerTask, channelTask);
             cts.Cancel(); // Anuluj drugie zadanie, które jeszcze nie skończyło
 
             if (completedTask == timerTask && nextSpotDeadline is not null)
@@ -50,9 +53,9 @@ public class SpotBgService : BackgroundService
             {
                 // Ktoś dodał nowy spot przez API. Pętla `while` się obróci,
                 // ponownie sprawdzi bazę i odpowiednio skróci lub wydłuży czas budzika.
-                if (_wakeupChannel.Reader.TryRead(out _)) 
+                if (_wakeupChannel.Reader.TryRead(out var spotId)) 
                 {
-                    Console.WriteLine("Wykryto nowy spot, aktualizuję harmonogram.");
+                    Console.WriteLine($"Dodano lub zaktualizowano spotId: {spotId}. Aktualizuję harmonogram.");
                 }
             }
         }
@@ -63,13 +66,16 @@ public class SpotBgService : BackgroundService
         using var scope = _serviceProvider.CreateAsyncScope();
         var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
 
+
         var result = await _session.Query<DbModels.Spot>()
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
                 m.CurrentStatus == Status.Spot.DuringBidding || 
                 m.CurrentStatus == Status.Spot.DuringNegotiation)
             .OrderBy(m=>m.DeadLine)
             .FirstOrDefaultAsync(ct);
-        
+
+        //Console.WriteLine($"Pobieram nowy dealine: {result?.DeadLine} dla spotID: {result?.Id}");
+
         return result?.DeadLine;
     }
 
@@ -82,7 +88,7 @@ public class SpotBgService : BackgroundService
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
                 m.CurrentStatus == Status.Spot.DuringBidding || 
                 m.CurrentStatus == Status.Spot.DuringNegotiation &&
-                m.DeadLine <= DateTimeOffset.UtcNow)
+                m.DeadLine <= _datetimeProvoder.Now())
             .ToListAsync(ct);
 
         foreach (var item in spotsToUpdate)

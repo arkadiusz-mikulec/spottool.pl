@@ -1,8 +1,11 @@
 ﻿@page "/spots/{UserId:int}/{Id:guid?}"
 @using System.Threading.Channels
 @using Marten
+@using Microsoft.JSInterop
 @using MudBlazor
 @using SpotTool.Web.Domain
+@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Domain.Types
 @using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
 
@@ -11,10 +14,12 @@
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
 @inject IDocumentSession session
+@inject IJSRuntime _jsRuntime
+@inject IDateTimeProvider _dateTimeProvider
 
 @if (Spots.Count == 0)
 {
-    <p><em>Loading...</em></p>
+    <p><em>There is no open spots right now!</em></p>
 }
 else
 {
@@ -33,6 +38,7 @@ else
                         <th></th>
                         <th></th>
                         <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,7 +46,8 @@ else
                     {
                         <tr>
                             <td>@spot.Id</td>
-                            <td>@spot.DeadLine.ToString("g")</td>
+                            <td>@_dateTimeProvider.ToUserLocalDateTime(spot.DeadLine, userData.Item3)</td>
+                            <td>@spot.DeadLine</td>
                             <td>@spot.CurrencyCode</td>
                             <td>@spot.CurrentStatus</td>
                             <td>@spot.CreatedByUser.Role</td>
@@ -79,20 +86,30 @@ else
     public int UserId {get; set;} = 1;
     List<DbModels.Spot> Spots { get; set; } = [];
     List<DbModels.Offer> Offers {get; set;} = [];
-    Guid userId {get; set;}
-
+    (Guid, Role.User, TimeSpan) userData {get; set;}
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription; #Checkit
-
+    int offsetInMinutes = 0;
 
     protected override async Task OnInitializedAsync()
     {
-        userId = UserId == 1 ? new Guid("01a0f794-41d9-706f-837e-6030026ec389") : new Guid("01a0f794-41dc-7d4f-a404-4af8db888226");
+        //TimeSpan userTimeSpan = TimeSpan.FromMinutes(offsetinMinutes);
+        
+        userData = UserId == 1 ? (new Guid("01a0f794-41d9-706f-837e-6030026ec389"), Role.User.Admin, TimeSpan.FromMinutes(120)) : 
+            (new Guid("01a0f794-41dc-7fd0-ab64-159c9ec07659"), Role.User.Carrier, TimeSpan.FromMinutes(60));
 
         // To sa grupy do ktorej przypisany jest carrier.
         // Testujemy admina i dispo wiec oni nie sa w grupach przewoznikow
         List<Guid> usersGroups = [];
-     
+        
+        DateTimeOffset start = new DateTimeOffset(DateOnly.FromDateTime(DateTime.Today), 
+            TimeOnly.FromTimeSpan(TimeSpan.Zero), 
+            TimeSpan.Zero);
+
+        DateTimeOffset end = new DateTimeOffset(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), 
+            TimeOnly.FromTimeSpan(new TimeSpan(23, 59, 59)), 
+            TimeSpan.Zero);
+    
         @* //tutaj musi byc filtrowanie po userId.
         //Uwaga mamy juz spotchannelManager musimy go jakos wykozystac
         if(Id is null)
@@ -109,11 +126,23 @@ else
                 Offers = await session.Query<DbModels.Offer>().Where(m=>m.SpotId == Id).ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);               
             }
         } *@
-        var reader = _spotChannelMenager.Subscribe(userId, usersGroups);
-        await _spotChannelMenager.InitSpotsAsync(cts.Token);
-        
+        var reader = _spotChannelMenager.Subscribe(userData.Item1, usersGroups);
+        await _spotChannelMenager.InitSpotsAsync(userData.Item1, userData.Item2, start, end, cts.Token);
         _ = ConsumeSpotChannelsAsync(reader);
     }
+
+    @* protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            offsetInMinutes = await _jsRuntime.InvokeAsync<int>("getUserTimezoneOffsetInMinutes");
+            Console.WriteLine($"User offset: {offsetInMinutes}. First: {firstRender}");  
+
+            StateHasChanged(); 
+        }
+        
+        //return base.OnAfterRenderAsync(firstRender);
+    } *@
 
     async Task ConsumeSpotChannelsAsync(ChannelReader<SpotChannelManager.SpotSignal> reader)
     {
@@ -134,8 +163,11 @@ else
                                 var spot = Spots.FirstOrDefault(s => s.Id == signal.Spot.Id);
                                 if (spot is null)
                                     Spots.Add(signal.Spot);
-                                else 
+                                else
+                                {
                                     spot.CurrentStatus = signal.Spot.CurrentStatus; 
+                                    spot.DeadLine = signal.Spot.DeadLine;
+                                } 
                             }
                             break;
 
@@ -211,6 +243,6 @@ else
         }
         cts?.Dispose();
         // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
-        _spotChannelMenager.Unsubscribe(userId);
+        _spotChannelMenager.Unsubscribe(userData.Item1);
     }
 }

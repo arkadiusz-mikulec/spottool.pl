@@ -54,10 +54,10 @@ public static class InitModels
                     (Guid)winnerOfferId!, 
                     carrier, 
                     450, 
-                    DateTimeOffset.UtcNow.ToLocalTime(), 
+                    DateTimeOffset.Now, 
                     Status.Offer.Negotiated, 
                     "450e min.", 
-                    DateTimeOffset.UtcNow.AddHours(2).ToLocalTime(),
+                    DateTimeOffset.Now.AddHours(2),
                     Currency.Code.EUR
                 )
             }
@@ -135,7 +135,7 @@ public static class InitModels
                 CreatedByUser = dispo,
                 CreatedForUser = carrier,
                 Value = 400,
-                ValidTill = DateTimeOffset.UtcNow.AddHours(1.5).ToLocalTime(),
+                ValidTill = DateTimeOffset.Now.AddHours(1.5),
                 Remarks = "Negotiation for 30 min with target 400e", 
                 Status = Status.Offer.ToNegotiation
             },

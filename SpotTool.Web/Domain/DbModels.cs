@@ -12,12 +12,12 @@ public static class DbModels
         public string? Description {get; set;} // some kind of titly for a spot?
         public decimal TargetedCost {get; set;} = 0;
         public ContactPersonDetail? ContactDetails { get; set; } //in case we want to create spot from system user but assing special contact person
-        public DateTimeOffset DeadLine { get; set; } = DateTimeOffset.UtcNow.AddMinutes(15).ToLocalTime();
+        public DateTimeOffset DeadLine { get; set; } = DateTimeOffset.Now.AddMinutes(15);
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public Status.Spot CurrentStatus {get; set;} = Status.Spot.NotConfirmed;
         //public Guid? WinnerOfferId { get; set; } 
         public OfferSnapShot? WinnerOfferSnapShot { get; set; } //zastanowic sie nad tym 
-        public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.UtcNow.ToLocalTime();
+        public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.Now;
         public required UserSnapShot CreatedByUser { get; set; }
     }
 
@@ -26,7 +26,7 @@ public static class DbModels
         public Guid Id {get; set;} = Guid.CreateVersion7();
         public Guid SpotId { get; set; }
         public Status.Spot SpotStatus { get; set; } = Status.Spot.NotConfirmed;
-        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
         public UserSnapShot? CreatedByUser { get; set; }
     }
 
@@ -54,8 +54,8 @@ public static class DbModels
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public bool IsWinnerOffer { get; set; } = false;
         public string? Remarks {get; set;}
-        public DateTimeOffset ValidTill { get; set; } = DateTimeOffset.UtcNow.AddHours(2).ToLocalTime();
-        public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.UtcNow.ToLocalTime();
+        public DateTimeOffset ValidTill { get; set; } = DateTimeOffset.Now.AddHours(2);
+        public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.Now;
         public required UserSnapShot CreatedByUser { get; set; }
         public required UserSnapShot CreatedForUser { get; set; }
         //public OfferFeedbackSnapShot? OfferFeedbackSnapShot { get; set; } - to bedzie czesc kontaktu zwracanego do UI/API
@@ -76,7 +76,7 @@ public static class DbModels
         public required ContactPersonDetail ContactDetails { get; set; }
         public Status.User Status { get; set; } = Domain.Types.Status.User.New;
         public Role.User Role { get; set; } = Domain.Types.Role.User.Other;
-        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToLocalTime();
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
         public DateTimeOffset? ModifiedAt { get; set; } = null;
     }
 

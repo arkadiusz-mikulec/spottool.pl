@@ -8,6 +8,7 @@ using System.Threading.Channels;
 using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain.BgServices;
 using SpotTool.Web.Features.Shared.Channels;
+using SpotTool.Web.Domain.Helpers;
 
 namespace SpotTool.Web;
 
@@ -16,6 +17,7 @@ public static class DependencyInjection
     public static IServiceCollection AddWebDependencies(this IServiceCollection services)
     {
         services.AddScoped<SpotService>();
+        services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
         //Service used for SpotBdService to wakeup
         services.AddSingleton(

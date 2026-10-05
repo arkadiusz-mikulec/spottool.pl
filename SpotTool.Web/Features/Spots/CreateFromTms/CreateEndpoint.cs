@@ -3,6 +3,7 @@ using FastEndpoints;
 using FluentValidation;
 using Marten;
 using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
 
@@ -25,10 +26,10 @@ public class Validator : Validator<Request>
             .WithMessage("Status musi być pusty, albo wynosić NotConfirmed lub Ok.");
         
         // alternatywa. Uruchomi sie tylko jeżeli wartośc statusu nie jest null
-        RuleFor(x => x.Status)
-            .Must(status => status is Status.Spot.NotConfirmed or Status.Spot.Ok)
-            .When(x => x.Status is not null) // Reguła działa tylko gdy status ma wartość
-            .WithMessage("Status musi być pusty, albo wynosić NotConfirmed lub Ok.");
+        // RuleFor(x => x.Status)
+        //     .Must(status => status is Status.Spot.NotConfirmed or Status.Spot.Ok)
+        //     .When(x => x.Status is not null) // Reguła działa tylko gdy status ma wartość
+        //     .WithMessage("Status musi być pusty, albo wynosić NotConfirmed lub Ok.");
 
     }
 }
@@ -37,7 +38,8 @@ public class Validator : Validator<Request>
 public class CreateEndpoint(
     IDocumentSession _session, 
     SpotChannelManager _spotChannelManager,
-    Channel<Guid> _wakeupChannel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+    Channel<Guid> _wakeupChannel,
+    IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     
     public override void Configure()
@@ -65,7 +67,9 @@ public class CreateEndpoint(
             ContactDetails = req.ContactPerson,
             CreatedByUser = new DbModels.UserSnapShot(user.Id, user.Role, user.Status, user.ContactDetails),
             CurrentStatus = req.Status ?? Status.Spot.NotConfirmed,
-            DeadLine = req.Deadline is null ? DateTimeOffset.UtcNow.AddMinutes(15) : (DateTimeOffset)req.Deadline
+            DeadLine = req.Deadline is null ? 
+                _dateTimeProvider.Now().AddMinutes(15) : 
+                _dateTimeProvider.FormatDateTimeWithoutSecunds((DateTimeOffset)req.Deadline)
         };
 
         _session.Store(spot);

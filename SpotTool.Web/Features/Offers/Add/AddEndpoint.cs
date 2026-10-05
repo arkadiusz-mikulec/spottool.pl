@@ -7,29 +7,13 @@ using Marten;
 using Marten.Patching;
 using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
 
 
-
 namespace SpotTool.Web.Features.Offers.Add;
 
-// public class Offer
-//     {
-//         public Guid Id { get; set; } = Guid.CreateVersion7();
-//         public Guid SpotId { get; set; }
-//         public Guid UserId {get; set;} // FK for CreatedForUser 
-//         public Status.Offer Status { get; set; } = Types.Status.Offer.Ok;
-//         public decimal Value { get; set; }
-//         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
-//         public bool IsWinnerOffer { get; set; } = false;
-//         public string? Remarks {get; set;}
-//         public DateTimeOffset ValidTill { get; set; } = DateTimeOffset.UtcNow.AddHours(2).ToLocalTime();
-//         public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.UtcNow.ToLocalTime();
-//         public required UserSnapShot CreatedByUser { get; set; }
-//         public required UserSnapShot CreatedForUser { get; set; }
-//         //public OfferFeedbackSnapShot? OfferFeedbackSnapShot { get; set; } - to bedzie czesc kontaktu zwracanego do UI/API
-//     }
 // 1. Definicja żądania i odpowiedzi (krótkie rekordy)
 public record Request(Guid SpotId, Guid CreateByUserId, Guid CreateForUserId, decimal Value, Currency.Code? CurrencyCode, string? Remark, DateTimeOffset? ValidTill);
 public record Response(Guid OfferId);
@@ -40,14 +24,15 @@ public class Validator : Validator<Request>
 {
     public Validator()
     {
-        //RuleFor(x => x.ValidTill).GreaterThan(DateTimeOffset.Now).WithMessage("Oferta musi być ważna dłużej niż NOW!");
+        //RuleFor(x => x.ValidTill).GreaterThan(_dateTimeProvider.Now()ithMessage("Oferta musi być ważna dłużej niż NOW!");
         RuleFor(x => x.Value).GreaterThan(0).WithMessage("Wartość oferty musi być dodatnia!");
     }
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
 public class AddEndpoint(IDocumentSession _session, 
-    SpotChannelManager _spotChannelMenager) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+    SpotChannelManager _spotChannelMenager,
+    IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -68,7 +53,7 @@ public class AddEndpoint(IDocumentSession _session,
             return; //Task.FromResult(new ProblemDetails();
         }
         
-        if(!CanAcceptOffer(spot!.CurrentStatus, spot.DeadLine))
+        if(!CanAcceptOffer(spot!.CurrentStatus, spot.DeadLine, _dateTimeProvider.Now()))
         {
             await Send.ResultAsync(TypedResults.Problem(
                 detail: "Offer cannot be accepted.",
@@ -130,7 +115,7 @@ public class AddEndpoint(IDocumentSession _session,
             CreatedByUser = new DbModels.UserSnapShot(createdByUser!.Id, createdByUser.Role, createdByUser.Status, createdByUser.ContactDetails),
             CreatedForUser = new DbModels.UserSnapShot(createdForUser!.Id, createdForUser.Role, createdForUser.Status, createdForUser.ContactDetails),
             SpotId = req.SpotId,
-            ValidTill = req.ValidTill ?? DateTimeOffset.UtcNow.AddHours(2),
+            ValidTill = req.ValidTill ?? _dateTimeProvider.Now().AddHours(2),
             Value = req.Value,
             CurrencyCode = req.CurrencyCode ?? Currency.Code.EUR,
             Remarks = req.Remark,
@@ -167,9 +152,9 @@ public class AddEndpoint(IDocumentSession _session,
         await Send.OkAsync(new Response(id), ct);
     }
 
-    private static bool CanAcceptOffer(Status.Spot status, DateTimeOffset spotDeadline)
+    private static bool CanAcceptOffer(Status.Spot status, DateTimeOffset spotDeadline, DateTimeOffset currentDatetime)
     {
-        if(status == Status.Spot.Ok || status == Status.Spot.DuringBidding && spotDeadline.Ticks >= DateTimeOffset.UtcNow.Ticks)
+        if(status == Status.Spot.Ok || status == Status.Spot.DuringBidding && spotDeadline >= currentDatetime)
             return true;
         else if(status == Status.Spot.DuringNegotiation)
             return true;
@@ -179,7 +164,7 @@ public class AddEndpoint(IDocumentSession _session,
 
     private static Status.Spot NextSpotStatus(DbModels.Spot spot, decimal value)
     {
-        //bool afterDeadLine = spot.DeadLine >= DateTimeOffset.UtcNow;
+        //bool afterDeadLine = spot.DeadLine >= _dateTimeProvider.Now();
 
         if(spot.CurrentStatus == Status.Spot.DuringNegotiation)
         {

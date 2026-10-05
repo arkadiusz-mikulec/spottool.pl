@@ -34,21 +34,67 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
             Console.WriteLine($"Unsubscribe: Connection user ID: {userId}.");
         }
     }
-    public async Task InitSpotsAsync(CancellationToken ct)
+    public async Task InitSpotsAsync(Guid connectedUserId, Role.User userRole, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateScope();
         var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        List<DbModels.Spot> spots = [];
 
-        var spots = await _session.Query<DbModels.Spot>()
-            .Where(m=>m.CurrentStatus == Status.Spot.NotConfirmed ||
-                m.CurrentStatus == Status.Spot.Ok ||
-                m.CurrentStatus == Status.Spot.DuringBidding ||
-                m.CurrentStatus == Status.Spot.DuringNegotiation)
-            .ToListAsync(ct);
+        if(userRole == Role.User.Disponent)
+        {
+            spots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
+                    m.UserId == connectedUserId &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
+        }
+        else if(userRole == Role.User.Admin || userRole == Role.User.Manager)
+        {
+            //Jakies ograniczenia dla teamu!!!
+            spots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
+        }
+        else if(userRole == Role.User.Carrier)
+        {
+            spots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus == Status.Spot.Ok &&
+                    m.CurrentStatus != Status.Spot.Deleted &&
+                    m.CurrentStatus != Status.Spot.EndedNoOffers &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
 
+            List<DbModels.Spot> restOfSpots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus != Status.Spot.Ok &&
+                    m.CurrentStatus != Status.Spot.Deleted &&
+                    m.CurrentStatus != Status.Spot.EndedNoOffers &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
+
+            foreach (var spot in restOfSpots)
+            {
+                var offerExist = await _session.Query<DbModels.Offer>()
+                    .AnyAsync(m=>m.CreatedForUser.Id == connectedUserId && m.SpotId == spot.Id, ct);
+
+                if(offerExist)
+                    spots.Add(spot);    
+            }
+        }
+        
         foreach (var spot in spots)
         {
-            await DistributeSpotAsync(spot, ct);
+            var groupsAssignedToSpot = new List<Guid>();
+            var signal = new SpotSignal(SignalType.SpotAdded, spot, null);
+            await SendToSpecificUserAsync(connectedUserId, groupsAssignedToSpot, signal, ct);
         }
     }
     // Metoda wywoływana przez Twój BackgroundService, gdy pojawi się nowy spot
@@ -62,7 +108,7 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
         var signal = new SpotSignal(SignalType.SpotAdded, spot, null);
 
         if(spot.CurrentStatus == Status.Spot.NotConfirmed)
-            await SendToSpotOwneAsync(spot.UserId, signal, ct);
+            await SendToSpecificUserAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
         else
             await SendToAuthorizedUsersAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
     }
@@ -96,14 +142,15 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
         await Task.WhenAll(tasks);
     }
 
-    private async Task SendToSpotOwneAsync(Guid spotUserId, SpotSignal signal, CancellationToken ct)
+    private async Task SendToSpecificUserAsync(Guid userId, List<Guid> groupsAssignedToSpot, SpotSignal signal, CancellationToken ct)
     {
-        var spotOwner = _activeConnections.Values.FirstOrDefault(sub => sub.UserId == spotUserId); 
+        var spotUser = _activeConnections.Values.FirstOrDefault(sub => sub.UserId == userId); 
 
-        if(spotOwner is null)
+        if(spotUser is null)
             return;
-
-        await spotOwner.Writer.WriteAsync(signal, ct);
+        
+        if(UserHasAccess(spotUser.UserId, userId, groupsAssignedToSpot, spotUser.CarrierGroupIds))
+            await spotUser.Writer.WriteAsync(signal, ct);
     }
 
     private static bool UserHasAccess(Guid userId, Guid spotUserId, List<Guid> groupsAssignedToSpot, List<Guid> carrierGroups)
@@ -120,6 +167,7 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
     }
     // Generyczny kontener przesyłający akcję oraz powiązany z nią obiekt danych
     public record SpotSignal(SignalType Type, DbModels.Spot? Spot, SpotStatusUpdateRequest? StatusUpdate);
+    //public record SpotInitModel(Guid connectedUserId, )
     
     private record UserSubscription(Guid UserId, List<Guid> CarrierGroupIds, ChannelWriter<SpotSignal> Writer);
     

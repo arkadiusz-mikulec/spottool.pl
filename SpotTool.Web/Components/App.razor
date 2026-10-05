@@ -22,6 +22,12 @@
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
+    <script>
+        window.getUserTimezoneOffsetInMinutes = () => {
+            return new Date().getTimezoneOffset() * -1;
+        }
+    </script>
+    
 </body>
 
 </html>
