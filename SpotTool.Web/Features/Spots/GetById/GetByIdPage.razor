@@ -3,11 +3,13 @@
 @using Marten
 @using Microsoft.JSInterop
 @using MudBlazor
+@using SpotTool.Web.Contracts
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
 @using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
+@using SpotTool.Web.Features.Users
 
 @inject SpotService _spotService
 @inject SpotChannelManager _spotChannelMenager
@@ -16,6 +18,20 @@
 @inject IDocumentSession session
 @inject IJSRuntime _jsRuntime
 @inject IDateTimeProvider _dateTimeProvider
+@inject UserService _userService
+@inject NavigationManager _navi
+@inject IConfiguration _appConfig
+
+
+<MudSelect @bind-Value="currentUserId">
+    <MudSelectItem Value="1">@("arkadiusz.mikulec@gmail.com")"</MudSelectItem>
+    <MudSelectItem Value="2">@("amikulec@sostmeier.pl")"</MudSelectItem>
+    <MudSelectItem Value="3">@("biuro@e-site.pl")"</MudSelectItem>
+</MudSelect>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UpdateUser()">Update</MudButton> 
+
+<p>@userDataProvider?.Email with offset @userDataProvider?.userOffset.ToString()</p>
 
 @if (Spots.Count == 0)
 {
@@ -46,7 +62,7 @@ else
                     {
                         <tr>
                             <td>@spot.Id</td>
-                            <td>@_dateTimeProvider.ToUserLocalDateTime(spot.DeadLine, userData.Item3)</td>
+                            <td>@_dateTimeProvider.ToUserLocalDateTime(spot.DeadLine, userDataProvider!.userOffset)</td>
                             <td>@spot.DeadLine</td>
                             <td>@spot.CurrencyCode</td>
                             <td>@spot.CurrentStatus</td>
@@ -86,48 +102,67 @@ else
     public int UserId {get; set;} = 1;
     List<DbModels.Spot> Spots { get; set; } = [];
     List<DbModels.Offer> Offers {get; set;} = [];
-    (Guid, Role.User, TimeSpan) userData {get; set;}
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription; #Checkit
-    int offsetInMinutes = 0;
-
+    //int offsetInMinutes = 0;
+    //DbModels.User? user {get; set;} = null;
+    //TimeSpan userOffset = TimeSpan.Zero;
+    int currentUserId = 1;
+    @* [Inject]
+    protected SpotService _spotService {get; set;} = new(); *@
+    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, Role.User Role, Status.User Status);
+    UserProvider? userDataProvider = null;
+    
+    async Task UpdateUser()
+    {
+        _navi.NavigateTo($"/spots/{currentUserId}", true);
+    }
     protected override async Task OnInitializedAsync()
     {
-        //TimeSpan userTimeSpan = TimeSpan.FromMinutes(offsetinMinutes);
-        
-        userData = UserId == 1 ? (new Guid("01a0f794-41d9-706f-837e-6030026ec389"), Role.User.Admin, TimeSpan.FromMinutes(120)) : 
-            (new Guid("01a0f794-41dc-7fd0-ab64-159c9ec07659"), Role.User.Carrier, TimeSpan.FromMinutes(60));
+        (string, TimeSpan) currentUser = 
+            (UserId == 1 ? 
+                ("arkadiusz.mikulec@gmail.com", TimeSpan.FromMinutes(120)) : 
+            UserId == 2 ? 
+                ("amikulec@sostmeier.pl", TimeSpan.FromMinutes(60)) : ("biuro@e-site.pl", TimeSpan.Zero));
 
-        // To sa grupy do ktorej przypisany jest carrier.
-        // Testujemy admina i dispo wiec oni nie sa w grupach przewoznikow
-        List<Guid> usersGroups = [];
+        //To bedzie kol na stronie logowanie
+        var user = await _userService.GetUserByEmailAsync(currentUser.Item1, cts.Token);
+
+        userDataProvider = new UserProvider(
+            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Role, user.Status);
+
+        Console.WriteLine($"Current user: {userDataProvider.Email}");
         
-        DateTimeOffset start = new DateTimeOffset(DateOnly.FromDateTime(DateTime.Today), 
+
+        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.userGroups);
+
+        DateTimeOffset start = new DateTimeOffset(
+            DateOnly.FromDateTime(
+                DateTime.Today.AddDays(
+                    Convert.ToInt32(_appConfig["UiSettings:DeafultSpotRangeStart"]))
+            ), 
             TimeOnly.FromTimeSpan(TimeSpan.Zero), 
-            TimeSpan.Zero);
+            TimeSpan.Zero
+        );
 
-        DateTimeOffset end = new DateTimeOffset(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), 
+        DateTimeOffset end = new DateTimeOffset(
+            DateOnly.FromDateTime(
+                DateTime.Today.AddDays(
+                    Convert.ToInt32(_appConfig["UiSettings:DeafultSpotRangeEnd"]))
+            ), 
             TimeOnly.FromTimeSpan(new TimeSpan(23, 59, 59)), 
             TimeSpan.Zero);
-    
-        @* //tutaj musi byc filtrowanie po userId.
-        //Uwaga mamy juz spotchannelManager musimy go jakos wykozystac
-        if(Id is null)
-        {
-            Spots = await _spotService.GetSpotsAsync(cts.Token);
-            Offers = await session.Query<DbModels.Offer>().ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);
-        }
-        else
-        {
-            var spot = await _spotService.GetSpotByIdAsync((Guid)Id!, cts.Token);
-            if(spot is not null)
-            {
-                Spots = [spot];
-                Offers = await session.Query<DbModels.Offer>().Where(m=>m.SpotId == Id).ToAsyncEnumerable(cts.Token).ToListAsync(cts.Token);               
-            }
-        } *@
-        var reader = _spotChannelMenager.Subscribe(userData.Item1, usersGroups);
-        await _spotChannelMenager.InitSpotsAsync(userData.Item1, userData.Item2, start, end, cts.Token);
+
+        Console.WriteLine($"Initialize spots for range from: {start} to: {end}");
+
+        await _spotService.InitSpotsAsync(
+            userDataProvider.Id, 
+            userDataProvider.Role, 
+            start, 
+            end, 
+            cts.Token
+        );
+
         _ = ConsumeSpotChannelsAsync(reader);
     }
 
@@ -136,15 +171,19 @@ else
         if(firstRender)
         {
             offsetInMinutes = await _jsRuntime.InvokeAsync<int>("getUserTimezoneOffsetInMinutes");
-            Console.WriteLine($"User offset: {offsetInMinutes}. First: {firstRender}");  
 
-            StateHasChanged(); 
-        }
+            if(userDataProvider?.userOffset != TimeSpan.FromMinutes(offsetInMinutes))
+            {
+                userDataProvider = userDataProvider! with { userOffset = TimeSpan.FromMinutes(offsetInMinutes) };
+                Console.WriteLine($"User offset has changed to : {userDataProvider.userOffset}. Page need to be rerender!");  
+                StateHasChanged();    
+            }
+        } 
         
         //return base.OnAfterRenderAsync(firstRender);
-    } *@
+    }*@
 
-    async Task ConsumeSpotChannelsAsync(ChannelReader<SpotChannelManager.SpotSignal> reader)
+    async Task ConsumeSpotChannelsAsync(ChannelReader<SpotSignal> reader)
     {
         try
         {
@@ -157,7 +196,7 @@ else
                 {
                     switch(signal.Type)
                     {
-                        case SpotChannelManager.SignalType.SpotAdded:
+                        case SignalType.SpotAdded:
                             if (signal.Spot != null)
                             { 
                                 var spot = Spots.FirstOrDefault(s => s.Id == signal.Spot.Id);
@@ -165,13 +204,14 @@ else
                                     Spots.Add(signal.Spot);
                                 else
                                 {
+                                    //tmp solution for approve and Update spot deadline
                                     spot.CurrentStatus = signal.Spot.CurrentStatus; 
                                     spot.DeadLine = signal.Spot.DeadLine;
                                 } 
                             }
                             break;
 
-                        case SpotChannelManager.SignalType.SpotStatusUpdate:
+                        case SignalType.SpotStatusUpdate:
                             if (signal.StatusUpdate != null)
                             {
                                 var spot = Spots.FirstOrDefault(s => s.Id == signal.StatusUpdate.SpotId);
@@ -243,6 +283,6 @@ else
         }
         cts?.Dispose();
         // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
-        _spotChannelMenager.Unsubscribe(userData.Item1);
+        _spotChannelMenager.Unsubscribe(userDataProvider!.Id);
     }
 }
