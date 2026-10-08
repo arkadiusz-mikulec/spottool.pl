@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using FastEndpoints;
 using FluentValidation;
 using Marten;
+using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
@@ -62,6 +63,7 @@ public class UpdateDeadlinaEndpoint(
         _session.Store(spot);
                            
         await _session.SaveChangesAsync(ct);
+
         await _spotChannelManager.DistributeSpotAsync(spot, ct);
         await _updateChannel.Writer.WriteAsync(spot.Id, ct);
         // // Błyskawiczna odpowiedź 201 Created

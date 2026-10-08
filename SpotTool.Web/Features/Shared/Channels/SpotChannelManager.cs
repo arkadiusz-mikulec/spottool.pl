@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using Marten;
 using SpotTool.Web.Contracts;
 using SpotTool.Web.Contracts.Spot;
+using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Spots;
@@ -46,7 +47,8 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
 
         List<Guid> groupsAssignedToSpot = await _spotService.GetSpotGroups(spot.Id, ct);
 
-        var signal = new SpotSignal(SignalType.SpotAdded, spot, null);
+        var spotUiRespond = new SpotUIRespond(spot);
+        var signal = new SpotSignal(SignalType.SpotAdded, spotUiRespond, null);
 
         if(spot.CurrentStatus == Status.Spot.NotConfirmed)
             await SendToSpecificUserAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
@@ -55,15 +57,14 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
     }
 
     // Metoda wywoływana przez Twój BackgroundService, gdy zmieni się status spota
-    public async Task DistributeSpotStatusAsync(DbModels.Spot spot, Status.Spot status, CancellationToken ct)
+    public async Task DistributeSpotStatusAsync(DbModels.Spot spot, CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateScope();
         var _spotService = scope.ServiceProvider.GetRequiredService<SpotService>();
 
         List<Guid> groupsAssignedToSpot = await _spotService.GetSpotGroups(spot.Id, ct);
 
-
-        var updateRequest = new SpotStatusUpdateRequest(spot.Id, status);
+        var updateRequest = new SpotStatusUpdateRequest(spot.Id, spot.CurrentStatus);
         var signal = new SpotSignal(SignalType.SpotStatusUpdate, null, updateRequest);
         
         await SendToAuthorizedUsersAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
@@ -75,10 +76,8 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
         var tasks = _activeConnections.Values.Select(async sub =>
         {
             if(IsSpotCreator(sub.UserId, userId) || CarrierHasAccess(groupsAssignedToSpot, sub.CarrierGroupIds))
-            {
                 // Zapisujemy bezpośrednio do PRYWATNEGO kanału tego konkretnego użytkownika
                 await sub.Writer.WriteAsync(signal, ct);
-            }
         });
 
         await Task.WhenAll(tasks);
@@ -107,6 +106,6 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
     // Definicje struktur danych wewnątrz klasy managementu dla lepszej enkapsulacji
     //public record SpotInitModel(Guid connectedUserId, )
     
-    private record UserSubscription(Guid UserId, List<Guid> CarrierGroupIds, ChannelWriter<SpotSignal> Writer);
+    private record UserSubscription(Guid UserId, Role.User userRole, List<Guid> CarrierGroupIds, ChannelWriter<SpotSignal> Writer);
     
 }

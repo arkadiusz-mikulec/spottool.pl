@@ -146,7 +146,7 @@ public class AddEndpoint(IDocumentSession _session,
         await _session.SaveChangesAsync(ct);
 
         if(sendChannelSignal)
-            await _spotChannelMenager.DistributeSpotStatusAsync(spot, nextStatus, ct);
+            await _spotChannelMenager.DistributeSpotStatusAsync(spot, ct);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);

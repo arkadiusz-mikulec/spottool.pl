@@ -6,15 +6,10 @@ Content-Type: application/json
 
 #Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 {
-    "UserEmail": "arkadiusz.mikulec@gmail.com",
-    "Route": "PL43->DE01",
-    "Price": 500,
-    "ContactPerson": {
-        "Name": "Test",
-        "Mobile": "+491252213",
-        "Email": "test@op.pl"
-    },
-    "Deadline" : "2026-10-05T16:40:15+00:00"
+    "UserEmail": "amikulec@sostmeier.pl",
+    "Route": "PL43->PL01",
+    "Price": 800,
+    "Deadline" : "2026-10-07T15:55:15+01:00"
 }
 
 ### Get Spot

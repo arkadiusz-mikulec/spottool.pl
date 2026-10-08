@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using FastEndpoints;
 using FluentValidation;
 using Marten;
+using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
@@ -81,11 +82,12 @@ public class CreateEndpoint(
 
         await _session.SaveChangesAsync(ct);
 
+        
         await _spotChannelManager.DistributeSpotAsync(spot, ct);
         if(spot.CurrentStatus == Status.Spot.Ok)
             await _wakeupChannel.Writer.WriteAsync(id, ct);
         
         // Błyskawiczna odpowiedź 201 Created
-         await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
+        await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
     }
 }

@@ -4,6 +4,7 @@
 @using Microsoft.JSInterop
 @using MudBlazor
 @using SpotTool.Web.Contracts
+@using SpotTool.Web.Contracts.UI.Spot
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
@@ -29,53 +30,43 @@
     <MudSelectItem Value="3">@("biuro@e-site.pl")"</MudSelectItem>
 </MudSelect>
 
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UpdateUser()">Update</MudButton> 
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateUser">Update</MudButton> 
 
 <p>@userDataProvider?.Email with offset @userDataProvider?.userOffset.ToString()</p>
-
-@if (Spots.Count == 0)
-{
-    <p><em>There is no open spots right now!</em></p>
-}
-else
-{
 
 <MudGrid>
     <MudItem xs="12">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th aria-label="Temperature in Celsius">Temp. (C)</th>
-                        <th aria-label="Temperature in Fahrenheit">Temp. (F)</th>
-                        <th>Summary</th>
-
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var spot in Spots)
-                    {
-                        <tr>
-                            <td>@spot.Id</td>
-                            <td>@_dateTimeProvider.ToUserLocalDateTime(spot.DeadLine, userDataProvider!.userOffset)</td>
-                            <td>@spot.DeadLine</td>
-                            <td>@spot.CurrencyCode</td>
-                            <td>@spot.CurrentStatus</td>
-                            <td>@spot.CreatedByUser.Role</td>
-                            <td>@spot.CreatedByUser.Status</td>
-                            <td>@(spot.ContactDetails?.Email ?? spot.CreatedByUser.PersonDetail.Email)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <MudTable Items="@Spots" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading" LoadingProgressColor="Color.Info">
+                <HeaderContent>
+                    <MudTh>Id</MudTh>
+                    <MudTh>Deadline</MudTh>
+                    <MudTh>Current Status</MudTh>
+                    <MudTh>Contact person</MudTh>
+                    <MudTh>Contact phone</MudTh>
+                    <MudTh>Operations</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Id">@context.Spot.Id</MudTd>
+                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
+                    <MudTd DataLabel="Current Status">@context.Spot.CurrentStatus - @(userDataProvider!.Role == Role.User.Carrier ? context.CarrierStatusDescription : context.DispoStatusDescription)</MudTd>
+                    <MudTd DataLabel="Contact person">@(context.Spot.ContactDetails?.Email ?? context.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
+                    <MudTd DataLabel="Contact phone" HideSmall="true">@context.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
+                    <MudTd DataLabel="Operations">
+                        @if(userDataProvider?.Role == Role.User.Carrier)
+                        {
+                            @string.Format("CarrierBtm: {0}", string.Join(" + ", context.SpotCarrierButtons.Select(m=>m.ButtonText)))
+                        }
+                        else
+                        {
+                            @string.Format("DispoBtm: {0}", string.Join(" + ", context.SpotDispoButtons.Select(m=>m.ButtonText)))
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
         </MudPaper>
     </MudItem>
-    <MudItem xs="6">
+    @* <MudItem xs="6">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6</MudPaper>
     </MudItem>
     <MudItem xs="6">
@@ -92,15 +83,15 @@ else
     </MudItem>
     <MudItem xs="3">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=3</MudPaper>
-    </MudItem>
+    </MudItem> *@
 </MudGrid>
-}
+
 @code {
     [Parameter]
     public Guid? Id {get; set;} = null;
     [Parameter]
     public int UserId {get; set;} = 1;
-    List<DbModels.Spot> Spots { get; set; } = [];
+    List<SpotUIRespond> Spots { get; set; } = [];
     List<DbModels.Offer> Offers {get; set;} = [];
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription; #Checkit
@@ -112,6 +103,7 @@ else
     protected SpotService _spotService {get; set;} = new(); *@
     record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, Role.User Role, Status.User Status);
     UserProvider? userDataProvider = null;
+    bool loading {  get; set; } = true;
     
     async Task UpdateUser()
     {
@@ -164,6 +156,7 @@ else
         );
 
         _ = ConsumeSpotChannelsAsync(reader);
+        loading = false;
     }
 
     @* protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -187,6 +180,7 @@ else
     {
         try
         {
+            Console.WriteLine("Consuming..");
             // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
             // i nie wywołano anulowania (np. poprzez zamknięcie strony)
             await foreach (var signal in reader.ReadAllAsync(cts.Token))
@@ -199,14 +193,17 @@ else
                         case SignalType.SpotAdded:
                             if (signal.Spot != null)
                             { 
-                                var spot = Spots.FirstOrDefault(s => s.Id == signal.Spot.Id);
+                                Console.WriteLine("Add/edit spot");
+                                var spot = Spots.FirstOrDefault(s => s.Spot.Id == signal.Spot.Spot.Id);
                                 if (spot is null)
                                     Spots.Add(signal.Spot);
                                 else
                                 {
                                     //tmp solution for approve and Update spot deadline
-                                    spot.CurrentStatus = signal.Spot.CurrentStatus; 
-                                    spot.DeadLine = signal.Spot.DeadLine;
+                                    spot.Spot.CurrentStatus = signal.Spot.Spot.CurrentStatus;
+                                    spot.CarrierStatusDescription = signal.Spot.CarrierStatusDescription;
+                                    spot.DispoStatusDescription = signal.Spot.DispoStatusDescription; 
+                                    spot.Spot.DeadLine = signal.Spot.Spot.DeadLine;
                                 } 
                             }
                             break;
@@ -214,16 +211,16 @@ else
                         case SignalType.SpotStatusUpdate:
                             if (signal.StatusUpdate != null)
                             {
-                                var spot = Spots.FirstOrDefault(s => s.Id == signal.StatusUpdate.SpotId);
+                                Console.WriteLine("Update spot status");
+                                var spot = Spots.FirstOrDefault(s => s.Spot.Id == signal.StatusUpdate.SpotId);
                                 if (spot != null) 
-                                    spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
+                                    spot.Spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
                             }
                             break;
                     }
                     StateHasChanged(); // Wymuszenie ponownego renderowania UI
                 });
             }
-            
         }
         catch (OperationCanceledException)
         {

@@ -1,5 +1,6 @@
 using Marten;
 using SpotTool.Web.Contracts;
+using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
@@ -89,7 +90,8 @@ public class SpotService(IDocumentSession _session,
         foreach (var spot in spots)
         {
             var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
-            var signal = new SpotSignal(SignalType.SpotAdded, spot, null);
+            var spotUiRespond = new SpotUIRespond(spot);
+            var signal = new SpotSignal(SignalType.SpotAdded, spotUiRespond, null);
             await _spotChannelManager.SendToSpecificUserAsync(connectedUserId, groupsAssignedToSpot, signal, ct);
         }
     }

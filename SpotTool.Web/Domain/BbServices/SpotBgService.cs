@@ -107,7 +107,7 @@ public class SpotBgService : BackgroundService
             _session.Store(item);
 
             //Moge stworzyc channel gdzie wysle cala liste!
-            await _spotChannelManager.DistributeSpotStatusAsync(item, spotStatus, ct);    
+            await _spotChannelManager.DistributeSpotStatusAsync(item, ct);    
         }
         await _session.SaveChangesAsync(ct);
 
