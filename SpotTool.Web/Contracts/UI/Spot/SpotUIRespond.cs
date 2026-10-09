@@ -5,25 +5,32 @@ namespace SpotTool.Web.Contracts.UI.Spot;
 
 public class SpotUIRespond
 {
-    public SpotUIRespond(DbModels.Spot spot)
+    public SpotUIRespond(DbModels.Spot spot, Role.User userRole)
 {
         Spot = spot;
-        DispoStatusDescription = spot.CurrentStatus.ToString();
-        CarrierStatusDescription = "Carrier status";
 
-        if(spot.CurrentStatus == Status.Spot.NotConfirmed)
-            SpotDispoButtons.AddRange([Buttons.ConfirmButton()]);
-        else if(spot.CurrentStatus == Status.Spot.Ok || spot.CurrentStatus == Status.Spot.DuringBidding)
-            SpotDispoButtons.AddRange([Buttons.EditButton()]);
-        
-        SpotCarrierButtons.AddRange([Buttons.AddOfferButton()]);
-    
+        if(userRole == Role.User.Carrier)
+        {
+            StatusDescription = "Carrier status";
+            SpotButtons.AddRange([Buttons.AddOfferButton()]);
+        }
+        else
+        {
+            StatusDescription = spot.CurrentStatus.ToString();
+            
+            List<Button> defaultButtons = [Buttons.EditButton(), Buttons.DetailsButton(), Buttons.DeleteButton()];
+            if(spot.CurrentStatus == Status.Spot.NotConfirmed)
+            {
+                SpotButtons.Add(Buttons.ConfirmButton());
+                SpotButtons.AddRange(defaultButtons);
+            }
+            else 
+                SpotButtons.AddRange(defaultButtons);
+        }
     }
     public DbModels.Spot Spot {get;set;} 
-    public string CarrierStatusDescription { get; set; } = string.Empty;
-    public string DispoStatusDescription { get; set; } = string.Empty;
-    public List<Button> SpotCarrierButtons {get; set;} = [];
-    public List<Button> SpotDispoButtons {get; set;} = [];
+    public string StatusDescription { get; set; } = string.Empty;
+    public List<Button> SpotButtons {get; set;} = [];
 }
 
 public static class Buttons
@@ -36,6 +43,15 @@ public static class Buttons
     { 
         return new Button {ButtonText = "Edit", ButtonIcon = "edit"}; 
     }
+    public static Button DetailsButton()
+    { 
+        return new Button {ButtonText = "Details", ButtonIcon = "d"}; 
+    }
+    public static Button DeleteButton()
+    { 
+        return new Button {ButtonText = "Delete", ButtonIcon = "d"}; 
+    }
+    
     public static Button AddOfferButton()
     { 
         return new Button {ButtonText = "Add offer", ButtonIcon = "edit"}; 

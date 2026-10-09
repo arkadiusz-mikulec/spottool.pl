@@ -1,23 +1,23 @@
 @host = http://localhost:5017
 
+@spotId = 01a11f62-d3a0-742a-b886-823fb01549ea
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
 Content-Type: application/json
 
 #Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 {
-    "UserEmail": "amikulec@sostmeier.pl",
+    "UserEmail": "arkadiusz.mikulec@gmail.com",
     "Route": "PL43->PL01",
     "Price": 800,
-    "Deadline" : "2026-10-07T15:55:15+01:00"
+    "Deadline" : "2026-10-09T09:00:15+02:00"
 }
 
 ### Get Spot
-@spotId = 01a0f3bd-4e8d-70bb-8fae-afa5937ea793
 GET {{host}}/api/v1/integrations/spots/{{spotId}}
 
 ### Add Offer
-@spotId = 01a10b33-45b1-793d-ada2-28acc7c3c9b1
+
 POST {{host}}/api/v1/integrations/offers
 Content-Type: application/json
 
@@ -29,12 +29,10 @@ Content-Type: application/json
 }
 
 ###Spot approval
-
-@spotId = 01a10c88-3785-7cb7-bcdd-539980658ef5
 POST {{host}}/api/v1/integrations/spot/{{spotId}}/approve
 
 ### Update spot deadlina
-@spotId = 01a10c88-3785-7cb7-bcdd-539980658ef5
+
 PATCH  {{host}}/api/v1/integrations/spot/update-deadlina
 Content-Type: application/json
 

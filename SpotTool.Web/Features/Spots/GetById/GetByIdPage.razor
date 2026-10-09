@@ -49,18 +49,11 @@
                 <RowTemplate>
                     <MudTd DataLabel="Id">@context.Spot.Id</MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
-                    <MudTd DataLabel="Current Status">@context.Spot.CurrentStatus - @(userDataProvider!.Role == Role.User.Carrier ? context.CarrierStatusDescription : context.DispoStatusDescription)</MudTd>
+                    <MudTd DataLabel="Current Status">@context.Spot.CurrentStatus - @context.StatusDescription</MudTd>
                     <MudTd DataLabel="Contact person">@(context.Spot.ContactDetails?.Email ?? context.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
                     <MudTd DataLabel="Contact phone" HideSmall="true">@context.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
                     <MudTd DataLabel="Operations">
-                        @if(userDataProvider?.Role == Role.User.Carrier)
-                        {
-                            @string.Format("CarrierBtm: {0}", string.Join(" + ", context.SpotCarrierButtons.Select(m=>m.ButtonText)))
-                        }
-                        else
-                        {
-                            @string.Format("DispoBtm: {0}", string.Join(" + ", context.SpotDispoButtons.Select(m=>m.ButtonText)))
-                        }
+                        @string.Format("Btm: {0}", string.Join(" + ", context.SpotButtons.Select(m=>m.ButtonText)))
                     </MudTd>
                 </RowTemplate>
             </MudTable>
@@ -126,7 +119,7 @@
         Console.WriteLine($"Current user: {userDataProvider.Email}");
         
 
-        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.userGroups);
+        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Role);
 
         DateTimeOffset start = new DateTimeOffset(
             DateOnly.FromDateTime(
@@ -201,8 +194,7 @@
                                 {
                                     //tmp solution for approve and Update spot deadline
                                     spot.Spot.CurrentStatus = signal.Spot.Spot.CurrentStatus;
-                                    spot.CarrierStatusDescription = signal.Spot.CarrierStatusDescription;
-                                    spot.DispoStatusDescription = signal.Spot.DispoStatusDescription; 
+                                    spot.StatusDescription = signal.Spot.StatusDescription;
                                     spot.Spot.DeadLine = signal.Spot.Spot.DeadLine;
                                 } 
                             }

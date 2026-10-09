@@ -7,6 +7,7 @@ using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
+using SpotTool.Web.Features.Shared.Spots;
 
 
 namespace SpotTool.Web.Features.Spots.CreateFromTms;
@@ -38,7 +39,7 @@ public class Validator : Validator<Request>
 // 3. Sam Endpoint + Handler w jednym miejscu
 public class CreateEndpoint(
     IDocumentSession _session, 
-    SpotChannelManager _spotChannelManager,
+    SpotDistribution _spotDistributor,
     Channel<Guid> _wakeupChannel,
     IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
@@ -83,9 +84,9 @@ public class CreateEndpoint(
         await _session.SaveChangesAsync(ct);
 
         
-        await _spotChannelManager.DistributeSpotAsync(spot, ct);
+        _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
         if(spot.CurrentStatus == Status.Spot.Ok)
-            await _wakeupChannel.Writer.WriteAsync(id, ct);
+            _wakeupChannel.Writer.TryWrite(id);
         
         // Błyskawiczna odpowiedź 201 Created
         await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);

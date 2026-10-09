@@ -10,19 +10,19 @@ using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Shared.Channels;
 
-public class SpotChannelManager(IServiceProvider _serviceProvider)
+public class SpotChannelManager()
 {
     private readonly ConcurrentDictionary<Guid, UserSubscription> _activeConnections = [];
 
     // Rejestracja użytkownika – zwracamy Reader, z którego strona Blazor będzie czytać w pętli 'await foreach'
-    public ChannelReader<SpotSignal> Subscribe(Guid userId, List<Guid> carrierGroups)
+    public ChannelReader<SpotSignal> Subscribe(Guid userId, Role.User userRole)
     {
         var userChannel = Channel.CreateUnbounded<SpotSignal>(new UnboundedChannelOptions
         {
             SingleReader = true // Tylko ta jedna konkretna strona Blazor czyta z tego kanału
         });
 
-        _activeConnections[userId] = new UserSubscription(userId, carrierGroups, userChannel.Writer);
+        _activeConnections[userId] = new UserSubscription(userId, userRole, userChannel.Writer);
         
         return userChannel.Reader;
     }
@@ -38,74 +38,21 @@ public class SpotChannelManager(IServiceProvider _serviceProvider)
         }
     }
     
-    
-    // Metoda wywoływana przez Twój BackgroundService, gdy pojawi się nowy spot
-    public async Task DistributeSpotAsync(DbModels.Spot spot, CancellationToken ct)
+    public UserSubscription? GetUserSubscriptionData(Guid connectionId)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var _spotService = scope.ServiceProvider.GetRequiredService<SpotService>();
-
-        List<Guid> groupsAssignedToSpot = await _spotService.GetSpotGroups(spot.Id, ct);
-
-        var spotUiRespond = new SpotUIRespond(spot);
-        var signal = new SpotSignal(SignalType.SpotAdded, spotUiRespond, null);
-
-        if(spot.CurrentStatus == Status.Spot.NotConfirmed)
-            await SendToSpecificUserAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
-        else
-            await SendToAuthorizedUsersAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
+        return _activeConnections.TryGetValue(connectionId, out var sub) ? sub : null;
     }
 
-    // Metoda wywoływana przez Twój BackgroundService, gdy zmieni się status spota
-    public async Task DistributeSpotStatusAsync(DbModels.Spot spot, CancellationToken ct)
+    // public List<Guid> GetAllActiveConnectionsId()
+    // {
+    //     return [.. _activeConnections.Keys];
+    // }
+
+    public IEnumerable<UserSubscription> GetAllUserSubscriptionData()
     {
-        using var scope = _serviceProvider.CreateScope();
-        var _spotService = scope.ServiceProvider.GetRequiredService<SpotService>();
-
-        List<Guid> groupsAssignedToSpot = await _spotService.GetSpotGroups(spot.Id, ct);
-
-        var updateRequest = new SpotStatusUpdateRequest(spot.Id, spot.CurrentStatus);
-        var signal = new SpotSignal(SignalType.SpotStatusUpdate, null, updateRequest);
-        
-        await SendToAuthorizedUsersAsync(spot.UserId, groupsAssignedToSpot, signal, ct);
+        return _activeConnections.Values;
     }
-
-    // Wspólna, prywatna metoda dystrybuująca sygnały do właściwych kanałów personalnych
-    private async Task SendToAuthorizedUsersAsync(Guid userId, List<Guid> groupsAssignedToSpot, SpotSignal signal, CancellationToken ct)
-    {
-        var tasks = _activeConnections.Values.Select(async sub =>
-        {
-            if(IsSpotCreator(sub.UserId, userId) || CarrierHasAccess(groupsAssignedToSpot, sub.CarrierGroupIds))
-                // Zapisujemy bezpośrednio do PRYWATNEGO kanału tego konkretnego użytkownika
-                await sub.Writer.WriteAsync(signal, ct);
-        });
-
-        await Task.WhenAll(tasks);
-    }
-
-    public async Task SendToSpecificUserAsync(Guid userId, List<Guid> groupsAssignedToSpot, SpotSignal signal, CancellationToken ct)
-    {
-        var channelUser = _activeConnections.Values.FirstOrDefault(sub => sub.UserId == userId); 
-
-        if(channelUser is null)
-            return;
-        
-        if(IsSpotCreator(channelUser.UserId, userId) || CarrierHasAccess(groupsAssignedToSpot, channelUser.CarrierGroupIds))
-            await channelUser.Writer.WriteAsync(signal, ct);
-    }
-
-    private static bool IsSpotCreator(Guid channelUserId, Guid spotUserId)
-    {
-        return channelUserId == spotUserId;
-    }
-    private static bool CarrierHasAccess(List<Guid> groupsAssignedToSpot, List<Guid> carrierGroups)
-    {
-        bool isGlobal = groupsAssignedToSpot.Count == 0; 
-        return isGlobal || carrierGroups.Intersect(groupsAssignedToSpot).Any();    
-    }
-    // Definicje struktur danych wewnątrz klasy managementu dla lepszej enkapsulacji
-    //public record SpotInitModel(Guid connectedUserId, )
-    
-    private record UserSubscription(Guid UserId, Role.User userRole, List<Guid> CarrierGroupIds, ChannelWriter<SpotSignal> Writer);
+       
+    public record UserSubscription(Guid UserId, Role.User UserRole, ChannelWriter<SpotSignal> Writer);
     
 }

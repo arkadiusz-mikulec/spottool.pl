@@ -1,6 +1,7 @@
 using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Types;
 
 namespace SpotTool.Web.Contracts;
 

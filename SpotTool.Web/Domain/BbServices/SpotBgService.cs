@@ -12,14 +12,14 @@ public class SpotBgService : BackgroundService
 {
     private readonly Channel<Guid> _wakeupChannel;
     private readonly IServiceProvider _serviceProvider;
-    private readonly SpotChannelManager _spotChannelManager;
+    private readonly SpotDistribution _spotDistribution;
     private readonly IDateTimeProvider _datetimeProvoder;
-    public SpotBgService(IServiceProvider serviceProvider, Channel<Guid> wakeupChannel, SpotChannelManager spotChannelManager, IDateTimeProvider datetimeProvoder)
+    public SpotBgService(IServiceProvider serviceProvider, Channel<Guid> wakeupChannel, IDateTimeProvider datetimeProvoder, SpotDistribution spotDistribution)
     {
         _serviceProvider = serviceProvider;
         _wakeupChannel = wakeupChannel;
-        _spotChannelManager = spotChannelManager;
         _datetimeProvoder = datetimeProvoder;
+        _spotDistribution = spotDistribution;
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -107,7 +107,7 @@ public class SpotBgService : BackgroundService
             _session.Store(item);
 
             //Moge stworzyc channel gdzie wysle cala liste!
-            await _spotChannelManager.DistributeSpotStatusAsync(item, ct);    
+            await _spotDistribution.SendSpotStatusToAuthorizedUsersAsync(item, ct);
         }
         await _session.SaveChangesAsync(ct);
 

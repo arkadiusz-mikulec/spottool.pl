@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<UserService>();
         
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddSingleton<SpotDistribution>();
 
         //Service used for SpotBdService to wakeup
         services.AddSingleton(

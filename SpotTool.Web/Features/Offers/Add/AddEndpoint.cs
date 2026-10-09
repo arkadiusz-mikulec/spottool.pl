@@ -10,6 +10,7 @@ using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
+using SpotTool.Web.Features.Shared.Spots;
 
 
 namespace SpotTool.Web.Features.Offers.Add;
@@ -31,7 +32,7 @@ public class Validator : Validator<Request>
 
 // 3. Sam Endpoint + Handler w jednym miejscu
 public class AddEndpoint(IDocumentSession _session, 
-    SpotChannelManager _spotChannelMenager,
+    SpotDistribution _spotDistributor,
     IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
@@ -146,7 +147,7 @@ public class AddEndpoint(IDocumentSession _session,
         await _session.SaveChangesAsync(ct);
 
         if(sendChannelSignal)
-            await _spotChannelMenager.DistributeSpotStatusAsync(spot, ct);
+            _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);

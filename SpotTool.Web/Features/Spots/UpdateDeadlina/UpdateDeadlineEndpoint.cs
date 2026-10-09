@@ -7,6 +7,7 @@ using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
+using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.UpdateDeadlina;
 
@@ -23,7 +24,7 @@ public class Validator : Validator<Request>
 
 public class UpdateDeadlinaEndpoint(
     IDocumentSession _session, 
-    SpotChannelManager _spotChannelManager,
+    SpotDistribution _spotDistributor,
     Channel<Guid> _updateChannel,
     IDateTimeProvider _dateTimeProvider) : Endpoint<Request>
 {
@@ -64,8 +65,8 @@ public class UpdateDeadlinaEndpoint(
                            
         await _session.SaveChangesAsync(ct);
 
-        await _spotChannelManager.DistributeSpotAsync(spot, ct);
-        await _updateChannel.Writer.WriteAsync(spot.Id, ct);
+        _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
+        _updateChannel.Writer.TryWrite(spot.Id);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.NoContentAsync(ct);

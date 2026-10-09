@@ -9,6 +9,7 @@ using SpotTool.Web.Features.Shared.Channels;
 namespace SpotTool.Web.Features.Shared.Spots;
 
 public class SpotService(IDocumentSession _session,
+    SpotDistribution _spotDistribution,
     SpotChannelManager _spotChannelManager)
 {
     public async Task<DbModels.Spot?> GetSpotByIdAsync(Guid id, CancellationToken ct)
@@ -90,9 +91,8 @@ public class SpotService(IDocumentSession _session,
         foreach (var spot in spots)
         {
             var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
-            var spotUiRespond = new SpotUIRespond(spot);
-            var signal = new SpotSignal(SignalType.SpotAdded, spotUiRespond, null);
-            await _spotChannelManager.SendToSpecificUserAsync(connectedUserId, groupsAssignedToSpot, signal, ct);
+            var userSubscibed = _spotChannelManager.GetUserSubscriptionData(connectedUserId);
+            _spotDistribution.SendSpotDataToUserAsync(spot, userSubscibed, groupsAssignedToSpot);
         }
     }
 }
