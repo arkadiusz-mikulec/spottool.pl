@@ -34,11 +34,39 @@ public class SpotService(IDocumentSession _session,
         return [];
     }
 
-    public async Task InitSpotsAsync(Guid connectedUserId, Role.User userRole, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
+    public async Task InitSpotsAsync(Guid connectedUserId, List<Role.User> userRoles, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
     {
         List<DbModels.Spot> spots = [];
 
-        if(userRole == Role.User.Disponent)
+        if(userRoles.Contains(Role.User.Admin))
+        {
+            spots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
+        }
+        else if(userRoles.Contains(Role.User.Issuer) && userRoles.Contains(Role.User.Bidder))
+        {
+            spots = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
+                    m.UserId == connectedUserId &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+            ];
+            // all spot from date range with current user offer 
+            spots.AddRange([.. await _session.Query<DbModels.Spot>()
+                .Where(m=>(m.CurrentStatus == Status.Spot.Ok ||
+                    m.BiddersId!.Contains(connectedUserId)) &&
+                    m.DeadLine >= start && m.DeadLine <= stop)
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct)
+                ]
+            );
+        }
+        else if(userRoles.Contains(Role.User.Issuer))
         {
             spots = [.. await _session.Query<DbModels.Spot>()
                 .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
@@ -48,45 +76,17 @@ public class SpotService(IDocumentSession _session,
                 .ToListAsync(ct)
             ];
         }
-        else if(userRole == Role.User.Admin || userRole == Role.User.Manager)
+        else if(userRoles.Contains(Role.User.Bidder))
         {
-            //Jakies ograniczenia dla teamu!!!
+            // all spot from date range with current user offer 
             spots = [.. await _session.Query<DbModels.Spot>()
-                .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
+                .Where(m=>(m.CurrentStatus == Status.Spot.Ok ||
+                    m.BiddersId!.Contains(connectedUserId)) &&
                     m.DeadLine >= start && m.DeadLine <= stop)
                 .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
-        }
-        else if(userRole == Role.User.Carrier)
-        {
-            spots = [.. await _session.Query<DbModels.Spot>()
-                .Where(m=>m.CurrentStatus == Status.Spot.Ok &&
-                    m.CurrentStatus != Status.Spot.Deleted &&
-                    m.CurrentStatus != Status.Spot.EndedNoOffers &&
-                    m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
-                .ToListAsync(ct)
-            ];
-
-            List<DbModels.Spot> restOfSpots = [.. await _session.Query<DbModels.Spot>()
-                .Where(m=>m.CurrentStatus != Status.Spot.Ok &&
-                    m.CurrentStatus != Status.Spot.Deleted &&
-                    m.CurrentStatus != Status.Spot.EndedNoOffers &&
-                    m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
-                .ToListAsync(ct)
-            ];
-
-            foreach (var spot in restOfSpots)
-            {
-                var offerExist = await _session.Query<DbModels.Offer>()
-                    .AnyAsync(m=>m.CreatedForUser.Id == connectedUserId && m.SpotId == spot.Id, ct);
-
-                if(offerExist)
-                    spots.Add(spot);    
-            }
-        }
+        }        
         
         foreach (var spot in spots)
         {

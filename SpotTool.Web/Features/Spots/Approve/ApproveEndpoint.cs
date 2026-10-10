@@ -30,7 +30,7 @@ public class ApproveEndpoint(
     {
         // Logika biznesowa zapisu do Martena/Postgresa
         var id = Route<Guid>("Id");
-        Console.WriteLine($"ID: {id}");
+        //Console.WriteLine($"ID: {id}");
         var spot = await _session.LoadAsync<DbModels.Spot>(id, ct);
         if(spot is null)
         {

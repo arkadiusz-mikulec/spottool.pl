@@ -13,8 +13,6 @@ public static class Status
         EndedCostOK,
         EndedCostTooHigh,
         DuringNegotiation,
-        ManuallyAccepted,
-        ManuallyRejected,
         Accepted,
         Rejected
     }

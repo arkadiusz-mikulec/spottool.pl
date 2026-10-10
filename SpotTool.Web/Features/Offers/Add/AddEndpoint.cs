@@ -113,8 +113,8 @@ public class AddEndpoint(IDocumentSession _session,
         { 
             Id = id, 
             UserId = req.CreateForUserId,
-            CreatedByUser = new DbModels.UserSnapShot(createdByUser!.Id, createdByUser.Role, createdByUser.Status, createdByUser.ContactDetails),
-            CreatedForUser = new DbModels.UserSnapShot(createdForUser!.Id, createdForUser.Role, createdForUser.Status, createdForUser.ContactDetails),
+            CreatedByUser = new DbModels.UserSnapShot(createdByUser!.Id, createdByUser.Roles, createdByUser.Status, createdByUser.ContactDetails),
+            CreatedForUser = new DbModels.UserSnapShot(createdForUser!.Id, createdForUser.Roles, createdForUser.Status, createdForUser.ContactDetails),
             SpotId = req.SpotId,
             ValidTill = req.ValidTill ?? _dateTimeProvider.Now().AddHours(2),
             Value = req.Value,
@@ -123,7 +123,24 @@ public class AddEndpoint(IDocumentSession _session,
             Status = offerStatus,
             ValueStatus = SetOfferValueStatus(req.Value, minOffer).Item1
         };
-        _session.Store(offer);
+        
+
+        if(spot.BiddersId is not null)
+        {
+            Console.WriteLine("Sprawdzam czy bidderId exist");
+            if(!spot.BiddersId.Contains(req.CreateForUserId))
+            {
+                Console.WriteLine($"Dodaje biddera: {req.CreateByUserId}");
+                spot.BiddersId.Add(req.CreateByUserId);   
+            }
+            else
+                Console.WriteLine($"bidder: {req.CreateByUserId} exist!!");
+        }
+        else
+        {
+            Console.WriteLine($"Dodaje #1 biddera: {req.CreateByUserId}");
+            spot.BiddersId = [req.CreateForUserId];
+        }
 
         var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. spotOffers.Where(m=>m.Value > minOfferValue)]);
         UpdateOffers(_session, offersToUpdate);
@@ -134,7 +151,6 @@ public class AddEndpoint(IDocumentSession _session,
         {
             spot.CurrentStatus = nextStatus;
             
-            _session.Update(spot);
             //_session.Patch<DbModels.Spot>(spot.Id).Set(m=>m.CurrentStatus, nextStatus);
             _session.Store(new DbModels.SpotStatusHistory
             {
@@ -144,6 +160,9 @@ public class AddEndpoint(IDocumentSession _session,
             sendChannelSignal = true;                    
         }
 
+        _session.Store(spot);
+        _session.Store(offer);
+        
         await _session.SaveChangesAsync(ct);
 
         if(sendChannelSignal)

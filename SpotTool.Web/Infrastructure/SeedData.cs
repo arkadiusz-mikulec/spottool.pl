@@ -22,15 +22,15 @@ public class SeedData : IInitialData
 
         // Przykładowe dane do zasiedlenia bazy
         var initialUsers = InitModels.Users();
-        var initSpotStatusHistory = InitModels.SpotStatusHistory();
-        var initOffers = InitModels.Offers();
-        var initialSpots = InitModels.Spots();
+        // var initSpotStatusHistory = InitModels.SpotStatusHistory();
+        // var initOffers = InitModels.Offers();
+        // var initialSpots = InitModels.Spots();
 
         // Zapisujemy obiekty (Marten sam obsłuży to jako UPSERT)
         session.Store(initialUsers);
-        session.Store(initialSpots);
-        session.Store(initSpotStatusHistory);
-        session.Store(initOffers);
+        // session.Store(initialSpots);
+        // session.Store(initSpotStatusHistory);
+        // session.Store(initOffers);
 
         // Zatwierdzamy zmiany w PostgreSQL
         await session.SaveChangesAsync(cancellation);

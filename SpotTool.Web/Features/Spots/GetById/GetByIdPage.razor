@@ -94,7 +94,7 @@
     int currentUserId = 1;
     @* [Inject]
     protected SpotService _spotService {get; set;} = new(); *@
-    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, Role.User Role, Status.User Status);
+    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, List<Role.User> Roles, Status.User Status);
     UserProvider? userDataProvider = null;
     bool loading {  get; set; } = true;
     
@@ -114,12 +114,12 @@
         var user = await _userService.GetUserByEmailAsync(currentUser.Item1, cts.Token);
 
         userDataProvider = new UserProvider(
-            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Role, user.Status);
+            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Roles, user.Status);
 
         Console.WriteLine($"Current user: {userDataProvider.Email}");
         
 
-        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Role);
+        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles);
 
         DateTimeOffset start = new DateTimeOffset(
             DateOnly.FromDateTime(
@@ -142,7 +142,7 @@
 
         await _spotService.InitSpotsAsync(
             userDataProvider.Id, 
-            userDataProvider.Role, 
+            userDataProvider.Roles, 
             start, 
             end, 
             cts.Token

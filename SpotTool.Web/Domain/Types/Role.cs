@@ -5,9 +5,7 @@ public static class Role
     public enum User
     {
         Admin,
-        Manager,
-        Disponent,
-        Carrier,
-        Other
+        Issuer,
+        Bidder
     }
 }

@@ -21,6 +21,7 @@ public static class DbModels
         public OfferSnapShot? WinnerOfferSnapShot { get; set; } //zastanowic sie nad tym 
         public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.Now;
         public required UserSnapShot CreatedByUser { get; set; }
+        public List<Guid>? BiddersId {get;set; } = null; // UserId which placed offer
     }
 
     public class SpotStatusHistory
@@ -38,7 +39,7 @@ public static class DbModels
     //W ten sposób mamy info komu wyswietlac oferty (zawsze dla UserId = CreatedForUser.Id)
     //Nic nie modyfikujemy w tej encji tylko dodajemy nowe pola! Pełna historia ofert
     public record OfferSnapShot(Guid Id, UserSnapShot CreatedByUser, decimal Value, DateTimeOffset CreatedAt, Status.Offer Status, string Remark, DateTimeOffset ValidTill, Currency.Code CurrencyCode);
-    public record UserSnapShot(Guid Id, Role.User Role, Status.User Status, ContactPersonDetail PersonDetail);
+    public record UserSnapShot(Guid Id, List<Role.User> Roles, Status.User Status, ContactPersonDetail PersonDetail);
 
     /*
     UPDATE public.mt_doc_dbmodels_offer
@@ -77,9 +78,10 @@ public static class DbModels
         public Guid Id { get; set; } = Guid.CreateVersion7();
         public required ContactPersonDetail ContactDetails { get; set; }
         public Status.User Status { get; set; } = Domain.Types.Status.User.New;
-        public Role.User Role { get; set; } = Domain.Types.Role.User.Other;
+        public List<Role.User> Roles { get; set; } = [Role.User.Bidder];
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
         public DateTimeOffset? ModifiedAt { get; set; } = null;
+
     }
 
     public class UserCredential

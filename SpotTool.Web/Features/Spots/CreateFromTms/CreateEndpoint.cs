@@ -67,7 +67,7 @@ public class CreateEndpoint(
             Description = req.Route, 
             TargetedCost = req.Price,
             ContactDetails = req.ContactPerson,
-            CreatedByUser = new DbModels.UserSnapShot(user.Id, user.Role, user.Status, user.ContactDetails),
+            CreatedByUser = new DbModels.UserSnapShot(user.Id, user.Roles, user.Status, user.ContactDetails),
             CurrentStatus = req.Status ?? Status.Spot.NotConfirmed,
             DeadLine = req.Deadline is null ? 
                 _dateTimeProvider.Now().AddMinutes(15) : 

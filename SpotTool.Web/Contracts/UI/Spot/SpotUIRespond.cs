@@ -5,11 +5,11 @@ namespace SpotTool.Web.Contracts.UI.Spot;
 
 public class SpotUIRespond
 {
-    public SpotUIRespond(DbModels.Spot spot, Role.User userRole)
+    public SpotUIRespond(DbModels.Spot spot, Role.User userRoleForThisSpot)
 {
         Spot = spot;
 
-        if(userRole == Role.User.Carrier)
+        if(userRoleForThisSpot == Role.User.Bidder)
         {
             StatusDescription = "Carrier status";
             SpotButtons.AddRange([Buttons.AddOfferButton()]);

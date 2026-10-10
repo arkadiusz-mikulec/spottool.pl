@@ -1,6 +1,6 @@
 @host = http://localhost:5017
 
-@spotId = 01a11f62-d3a0-742a-b886-823fb01549ea
+@spotId = 01a12096-3a87-7f1e-a8fc-fa7c16b111a9
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
 Content-Type: application/json
@@ -9,37 +9,33 @@ Content-Type: application/json
 {
     "UserEmail": "arkadiusz.mikulec@gmail.com",
     "Route": "PL43->PL01",
-    "Price": 800,
-    "Deadline" : "2026-10-09T09:00:15+02:00"
+    "Price": 800
 }
 
 ### Get Spot
 GET {{host}}/api/v1/integrations/spots/{{spotId}}
 
-### Add Offer
-
-POST {{host}}/api/v1/integrations/offers
-Content-Type: application/json
-
-{
-    "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a0f794-41dc-7fd0-ab64-159c9ec07659",
-    "CreateForUserId": "01a0f794-41dc-7fd0-ab64-159c9ec07659",
-    "Value": 600
-}
-
 ###Spot approval
 POST {{host}}/api/v1/integrations/spot/{{spotId}}/approve
 
 ### Update spot deadlina
-
 PATCH  {{host}}/api/v1/integrations/spot/update-deadlina
 Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "SpotDeadline": "2026-10-05T16:55:12-02:00"
+    "SpotDeadline": "2026-10-09T16:55:12+02:00"
 }
 
+### Add Offer
+POST {{host}}/api/v1/integrations/offers
+Content-Type: application/json
+
+{
+    "SpotId": "{{spotId}}",
+    "CreateByUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
+    "CreateForUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
+    "Value": 600
+}
 
 
