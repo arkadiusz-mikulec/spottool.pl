@@ -174,9 +174,9 @@ public class AddEndpoint(IDocumentSession _session,
 
     private static bool CanAcceptOffer(Status.Spot status, DateTimeOffset spotDeadline, DateTimeOffset currentDatetime)
     {
-        if(status == Status.Spot.Ok || status == Status.Spot.DuringBidding && spotDeadline >= currentDatetime)
+        if(status == Status.Spot.Ok || status == Status.Spot.Bidding && spotDeadline >= currentDatetime)
             return true;
-        else if(status == Status.Spot.DuringNegotiation)
+        else if(status == Status.Spot.Negotiation)
             return true;
 
         return false;
@@ -186,12 +186,12 @@ public class AddEndpoint(IDocumentSession _session,
     {
         //bool afterDeadLine = spot.DeadLine >= _dateTimeProvider.Now();
 
-        if(spot.CurrentStatus == Status.Spot.DuringNegotiation)
+        if(spot.CurrentStatus == Status.Spot.Negotiation)
         {
             return spot.TargetedCost < value ? Status.Spot.EndedCostTooHigh : Status.Spot.EndedCostOK;
         }
         else if(spot.CurrentStatus == Status.Spot.Ok)
-            return Status.Spot.DuringBidding;
+            return Status.Spot.Bidding;
 
         return spot.CurrentStatus;
     }

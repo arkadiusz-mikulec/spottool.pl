@@ -74,7 +74,7 @@ public class UpdateDeadlinaEndpoint(
 
     private static bool CanBeUpdated(DbModels.Spot spot)
     {
-        if(spot.CurrentStatus == Status.Spot.NotConfirmed || spot.CurrentStatus == Status.Spot.Ok || spot.CurrentStatus == Status.Spot.DuringBidding)
+        if(spot.CurrentStatus == Status.Spot.NotConfirmed || spot.CurrentStatus == Status.Spot.Ok || spot.CurrentStatus == Status.Spot.Bidding)
             return true;
         return false;
     }

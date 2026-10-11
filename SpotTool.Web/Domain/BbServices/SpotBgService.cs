@@ -69,8 +69,8 @@ public class SpotBgService : BackgroundService
 
         var result = await _session.Query<DbModels.Spot>()
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
-                m.CurrentStatus == Status.Spot.DuringBidding || 
-                m.CurrentStatus == Status.Spot.DuringNegotiation)
+                m.CurrentStatus == Status.Spot.Bidding || 
+                m.CurrentStatus == Status.Spot.Negotiation)
             .OrderBy(m=>m.DeadLine)
             .FirstOrDefaultAsync(ct);
 
@@ -86,8 +86,8 @@ public class SpotBgService : BackgroundService
 
         var spotsToUpdate = await _session.Query<DbModels.Spot>()
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
-                m.CurrentStatus == Status.Spot.DuringBidding || 
-                m.CurrentStatus == Status.Spot.DuringNegotiation &&
+                m.CurrentStatus == Status.Spot.Bidding || 
+                m.CurrentStatus == Status.Spot.Negotiation &&
                 m.DeadLine <= _datetimeProvoder.Now())
             .ToListAsync(ct);
 

@@ -1,5 +1,7 @@
+using Marten;
 using SpotTool.Web.Contracts;
 using SpotTool.Web.Contracts.Spot;
+using SpotTool.Web.Contracts.UI.Offer;
 using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
@@ -9,18 +11,18 @@ using static SpotTool.Web.Features.Shared.Channels.SpotChannelManager;
 
 namespace SpotTool.Web.Features.Shared.Spots;
 
-public class SpotDistribution(SpotChannelManager _spotChannelManager)
+public class SpotDistribution(SpotChannelManager _spotChannelManager, IServiceProvider _serviceProvider)
 {
 
     // Wspólna, prywatna metoda dystrybuująca sygnały do właściwych kanałów personalnych
-    public Task SendSpotDataToAuthorizedUsersAsync(DbModels.Spot spot)
+    public async Task SendSpotDataToAuthorizedUsersAsync(DbModels.Spot spot)
     {
         try
         {
             if(spot.CurrentStatus == Status.Spot.NotConfirmed)
             {
                 var userData = _spotChannelManager.GetUserSubscriptionData(spot.UserId);
-                SendSpotDataToUserAsync(spot, userData, []);
+                await SendSpotDataToUserAsync(spot, userData, []);
             }
             else
             {
@@ -28,7 +30,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
                 var activeUsers = _spotChannelManager.GetAllUserSubscriptionData();
                 foreach (var user in activeUsers)
                 {
-                    SendSpotDataToUserAsync(spot, user, groupsAssignedToSpot);
+                    await SendSpotDataToUserAsync(spot, user, groupsAssignedToSpot);
                 }    
             }
         }
@@ -36,41 +38,25 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         {
             Console.WriteLine($"[EXCEPTION]: {ex.Message} in SpotDistribution.SendSpotDatatoAuthorize");
         }
-        return Task.CompletedTask;
     }
 
-    public void SendSpotDataToUserAsync(DbModels.Spot spot, UserSubscription? userSubscription, List<Guid> groupsAssignedToSpot)
+    public async Task SendSpotDataToUserAsync(DbModels.Spot spot, UserSubscription? userSubscription, List<Guid> groupsAssignedToSpot)
     {
-        bool sendSignal = false;
-        Role.User roleForThisSpot = Role.User.Bidder;
-
         if(userSubscription is null)
             return;
 
-        if(IsSpotCreator(userSubscription.UserId, spot.UserId))
-        {
-            sendSignal = true;
-            roleForThisSpot = Role.User.Issuer;
-        }
-        else
-        {
-            List<Guid> carrierGroup = []; //_userService.GetGroups or something or casch
-            List<Guid> usersExcluded = []; //_spotService
-            if(CarrierHasAccess(userSubscription.UserId, groupsAssignedToSpot, carrierGroup, usersExcluded))
-                sendSignal = true;
-        }
-
+        var (sendSignal, userRole, lastBidderOfferRespond) = await SendTheSignal(spot, _serviceProvider, userSubscription, groupsAssignedToSpot);
         if(sendSignal)
         {
-            var spotUiRespond = new SpotUIRespond(spot, roleForThisSpot);
-            var signal = new SpotSignal(SignalType.SpotAdded,  spotUiRespond, null);
+            var spotUiRespond = new SpotUIRespond(spot, userRole, lastBidderOfferRespond);
+            var signal = new SpotSignal(SignalType.SpotAdded, spotUiRespond, null);
 
             if(!userSubscription.Writer.TryWrite(signal))
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
     }
     //Zmienic tak jak jest zrobione funkcja SendSpotDataToAll
-    public Task SendSpotStatusToAuthorizedUsersAsync(DbModels.Spot spot, CancellationToken ct)
+    public async Task SendSpotStatusToAuthorizedUsersAsync(DbModels.Spot spot, CancellationToken ct)
     {
         try
         {
@@ -78,23 +64,36 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
             var activeUsersIds = _spotChannelManager.GetAllUserSubscriptionData();
             foreach (var userId in activeUsersIds)
             {
-                SendSpotStatusToUserAsync(spot, userId, groupsAssignedToSpot);
+                await SendSpotStatusToUserAsync(spot, userId, groupsAssignedToSpot);
             }    
         }
         catch(Exception ex)
         {
             Console.WriteLine($"[Exception]. SpotDistributor.SendSpotStatusToAuthorizedUsersAsync. Msg: {ex.Message}");
         }
-        return Task.CompletedTask;
     }
 
-    private void SendSpotStatusToUserAsync(DbModels.Spot spot, UserSubscription userSubscription, List<Guid> groupsAssignedToSpot)
+    private async Task SendSpotStatusToUserAsync(DbModels.Spot spot, UserSubscription userSubscription, List<Guid> groupsAssignedToSpot)
+    {
+        if(userSubscription is null)
+            return;
+        
+        var (sendSignal, userRole, lastBidderOfferRespond) = await SendTheSignal(spot, _serviceProvider, userSubscription, groupsAssignedToSpot);
+        if(sendSignal)
+        {
+            var signal = new SpotSignal(SignalType.SpotStatusUpdate, null, new SpotStatusUIRespond(spot.Id, spot.CurrentStatus, userRole, lastBidderOfferRespond));        
+            if(!userSubscription.Writer.TryWrite(signal))
+                _spotChannelManager.Unsubscribe(userSubscription.UserId);
+        }
+
+    }
+
+    private static async Task<(bool sendSignal, Role.User userRole, LastBidderOfferRespond? lastBidderOfferRespond)>SendTheSignal(DbModels.Spot spot, IServiceProvider serviceProvider, UserSubscription userSubscription, 
+        List<Guid> groupsAssignedToSpot)
     {
         bool sendSignal = false;
         Role.User roleForThisSpot = Role.User.Bidder;
-
-        if(userSubscription is null)
-            return;
+        LastBidderOfferRespond? lastBidderOfferRespond = null;
 
         if(IsSpotCreator(userSubscription.UserId, spot.UserId))
         {
@@ -106,15 +105,24 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
             List<Guid> carrierGroup = []; //_userService.GetGroups or something or casch
             List<Guid> usersExcluded = []; //_spotService
             if(CarrierHasAccess(userSubscription.UserId, groupsAssignedToSpot, carrierGroup, usersExcluded))
+            {
                 sendSignal = true;
+                if(spot.BiddersId is not null && spot.BiddersId.Contains(userSubscription.UserId))
+                {
+                    using var scope = serviceProvider.CreateScope();
+                    IDocumentSession session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+
+                    var lastBidderOffer = await session.Query<DbModels.Offer>()
+                        .Where(m => m.SpotId == spot.Id && m.UserId == userSubscription.UserId)
+                        .OrderBy(m => m.Value) // Zamień na Twoje pole sortujące (np. Id lub Date)
+                        .FirstOrDefaultAsync();
+                    
+                    if(lastBidderOffer is not null)
+                        lastBidderOfferRespond = new LastBidderOfferRespond(lastBidderOffer!.Value, lastBidderOffer!.ValueStatus);
+                }
+            }
         }
-            
-        if(sendSignal)
-        {
-            var signal = new SpotSignal(SignalType.SpotStatusUpdate, null, new SpotStatusUpdateRequest(spot.Id, spot.CurrentStatus));        
-            if(!userSubscription.Writer.TryWrite(signal))
-                _spotChannelManager.Unsubscribe(userSubscription.UserId);
-        }
+        return new (sendSignal, roleForThisSpot, lastBidderOfferRespond);
     }
 
     private static bool IsSpotCreator(Guid channelUserId, Guid spotUserId)

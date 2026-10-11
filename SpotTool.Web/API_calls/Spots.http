@@ -1,6 +1,6 @@
 @host = http://localhost:5017
 
-@spotId = 01a12096-3a87-7f1e-a8fc-fa7c16b111a9
+@spotId = 01a123f9-e4fc-7570-9025-120cd65168ae
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
 Content-Type: application/json
@@ -8,8 +8,8 @@ Content-Type: application/json
 #Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 {
     "UserEmail": "arkadiusz.mikulec@gmail.com",
-    "Route": "PL43->PL01",
-    "Price": 800
+    "Route": "DE43->PL01",
+    "Price": 700
 }
 
 ### Get Spot
@@ -36,6 +36,17 @@ Content-Type: application/json
     "CreateByUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
     "CreateForUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
     "Value": 600
+}
+
+### Add offer from amikulec
+POST {{host}}/api/v1/integrations/offers
+Content-Type: application/json
+
+{
+    "SpotId": "{{spotId}}",
+    "CreateByUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
+    "CreateForUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
+    "Value": 300
 }
 
 

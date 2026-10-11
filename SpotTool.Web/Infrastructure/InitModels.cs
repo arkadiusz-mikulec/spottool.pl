@@ -80,7 +80,7 @@ public static class InitModels
             {
                 SpotId = spotId,
                 CreatedByUser = carrier,
-                SpotStatus = Status.Spot.DuringBidding,
+                SpotStatus = Status.Spot.Bidding,
                 //CreatedAt = DateTimeOffset.UtcNow.AddMinutes(2).ToLocalTime()
             },
             new DbModels.SpotStatusHistory
@@ -94,7 +94,7 @@ public static class InitModels
             {
                 SpotId = spotId,
                 CreatedByUser = dispo,
-                SpotStatus = Status.Spot.DuringNegotiation,
+                SpotStatus = Status.Spot.Negotiation,
                 //CreatedAt = DateTimeOffset.UtcNow.AddMinutes(15).ToLocalTime()
             },
             new DbModels.SpotStatusHistory

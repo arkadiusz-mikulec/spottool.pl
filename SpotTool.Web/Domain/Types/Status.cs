@@ -1,3 +1,5 @@
+using ImTools;
+
 namespace SpotTool.Web.Domain.Types;
 
 public static class Status
@@ -7,14 +9,31 @@ public static class Status
         NotConfirmed,
         Ok,
         Deleted,
-        DuringBidding,
+        Bidding,
         Canceled,
         EndedNoOffers,
         EndedCostOK,
         EndedCostTooHigh,
-        DuringNegotiation,
+        Negotiation,
         Accepted,
         Rejected
+    }
+
+    public static class SpotName
+    {
+        public static string Get(Status.Spot spotStatus, Role.User userRole)
+        {
+            if(userRole == Role.User.Issuer)
+                return spotStatus.ToString();
+            
+            switch(spotStatus)
+            {
+                case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
+                case Spot.EndedCostOK:
+                case Spot.EndedCostTooHigh: return "TO CONFIRM";
+                default: return spotStatus.ToString().ToUpper();
+            }
+        }
     }
 
     public enum OfferValue

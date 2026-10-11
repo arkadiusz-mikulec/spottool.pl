@@ -49,7 +49,10 @@
                 <RowTemplate>
                     <MudTd DataLabel="Id">@context.Spot.Id</MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
-                    <MudTd DataLabel="Current Status">@context.Spot.CurrentStatus - @context.StatusDescription</MudTd>
+                    <MudTd DataLabel="Current Status">
+                        <MudChip T="string" Color="@context.StatusUIRespond.GetStatusProperties().color">
+                            @context.StatusUIRespond.GetStatusProperties().text</MudChip>
+                    </MudTd>
                     <MudTd DataLabel="Contact person">@(context.Spot.ContactDetails?.Email ?? context.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
                     <MudTd DataLabel="Contact phone" HideSmall="true">@context.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
                     <MudTd DataLabel="Operations">
@@ -193,8 +196,6 @@
                                 else
                                 {
                                     //tmp solution for approve and Update spot deadline
-                                    spot.Spot.CurrentStatus = signal.Spot.Spot.CurrentStatus;
-                                    spot.StatusDescription = signal.Spot.StatusDescription;
                                     spot.Spot.DeadLine = signal.Spot.Spot.DeadLine;
                                 } 
                             }
@@ -206,7 +207,7 @@
                                 Console.WriteLine("Update spot status");
                                 var spot = Spots.FirstOrDefault(s => s.Spot.Id == signal.StatusUpdate.SpotId);
                                 if (spot != null) 
-                                    spot.Spot.CurrentStatus = signal.StatusUpdate.Status; // Aktualizacja statusu w tabeli
+                                    spot.StatusUIRespond = signal.StatusUpdate; // Aktualizacja statusu w tabeli
                             }
                             break;
                     }
