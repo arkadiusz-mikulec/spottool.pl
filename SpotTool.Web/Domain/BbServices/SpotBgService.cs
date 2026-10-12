@@ -83,6 +83,7 @@ public class SpotBgService : BackgroundService
     {
         using var scope = _serviceProvider.CreateAsyncScope();
         var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        var spotService = scope.ServiceProvider.GetRequiredService<SpotService>();
 
         var spotsToUpdate = await _session.Query<DbModels.Spot>()
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
@@ -107,7 +108,13 @@ public class SpotBgService : BackgroundService
             _session.Store(item);
 
             //Moge stworzyc channel gdzie wysle cala liste!
-            await _spotDistribution.SendSpotStatusToAuthorizedUsersAsync(item, ct);
+            var spotModel = new SpotModel(
+                item, 
+                null, 
+                await spotService.GetSpotGroups(item.Id, ct),
+                await spotService.GetUsersExcluded(item.Id, ct)
+            );
+            _ = _spotDistribution.SendSpotStatusToAuthorizedUsers(spotModel);
         }
         await _session.SaveChangesAsync(ct);
 

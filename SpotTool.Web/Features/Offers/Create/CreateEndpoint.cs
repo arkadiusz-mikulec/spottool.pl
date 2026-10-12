@@ -1,15 +1,10 @@
-using System.Net;
-using System.Reflection.Metadata;
-using System.Threading.Channels;
 using FastEndpoints;
 using FluentValidation;
 using Marten;
 using Marten.Patching;
-using SpotTool.Web.Contracts.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
-using SpotTool.Web.Features.Shared.Channels;
 using SpotTool.Web.Features.Shared.Spots;
 
 
@@ -31,9 +26,10 @@ public class Validator : Validator<Request>
 }
 
 // 3. Sam Endpoint + Handler w jednym miejscu
-public class AddEndpoint(IDocumentSession _session, 
+public class CreateEndpoint(IDocumentSession _session, 
     SpotDistribution _spotDistributor,
-    IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+    IDateTimeProvider _dateTimeProvider,
+    SpotService _spotService) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -127,18 +123,18 @@ public class AddEndpoint(IDocumentSession _session,
 
         if(spot.BiddersId is not null)
         {
-            Console.WriteLine("Sprawdzam czy bidderId exist");
+            //Console.WriteLine("Sprawdzam czy bidderId exist");
             if(!spot.BiddersId.Contains(req.CreateForUserId))
             {
-                Console.WriteLine($"Dodaje biddera: {req.CreateByUserId}");
+                //Console.WriteLine($"Dodaje biddera: {req.CreateByUserId}");
                 spot.BiddersId.Add(req.CreateByUserId);   
             }
-            else
-                Console.WriteLine($"bidder: {req.CreateByUserId} exist!!");
+            // else
+            //     Console.WriteLine($"bidder: {req.CreateByUserId} exist!!");
         }
         else
         {
-            Console.WriteLine($"Dodaje #1 biddera: {req.CreateByUserId}");
+            //Console.WriteLine($"Dodaje #1 biddera: {req.CreateByUserId}");
             spot.BiddersId = [req.CreateForUserId];
         }
 
@@ -146,7 +142,6 @@ public class AddEndpoint(IDocumentSession _session,
         UpdateOffers(_session, offersToUpdate);
 
         var nextStatus = NextSpotStatus(spot, req.Value);
-        bool sendChannelSignal = false;
         if(spot.CurrentStatus != nextStatus)
         {
             spot.CurrentStatus = nextStatus;
@@ -157,7 +152,6 @@ public class AddEndpoint(IDocumentSession _session,
                 SpotId = req.SpotId,
                 SpotStatus = nextStatus
             });
-            sendChannelSignal = true;                    
         }
 
         _session.Store(spot);
@@ -165,8 +159,18 @@ public class AddEndpoint(IDocumentSession _session,
         
         await _session.SaveChangesAsync(ct);
 
-        if(sendChannelSignal)
-            _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
+    
+        spotOffers.Add(offer);
+
+        Czy nie wystarczy SpotStatusUIRespond?
+        var spotModel = new SpotModel(
+            spot, 
+            spotOffers,
+            await _spotService.GetSpotGroups(spot.Id, ct),
+            await _spotService.GetUsersExcluded(spot.Id, ct) 
+        );
+        _ = _spotDistributor.SendOfferCreatedToAuthorizedUsers(spotModel);
+        
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.OkAsync(new Response(id), ct);

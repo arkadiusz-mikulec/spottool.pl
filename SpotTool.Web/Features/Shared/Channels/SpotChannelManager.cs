@@ -15,14 +15,14 @@ public class SpotChannelManager()
     private readonly ConcurrentDictionary<Guid, UserSubscription> _activeConnections = [];
 
     // Rejestracja użytkownika – zwracamy Reader, z którego strona Blazor będzie czytać w pętli 'await foreach'
-    public ChannelReader<SpotSignal> Subscribe(Guid userId, List<Role.User> userRoles)
+    public ChannelReader<SpotSignal> Subscribe(Guid userId, List<Role.User> userRoles, List<Guid>? carrierGroups)
     {
         var userChannel = Channel.CreateUnbounded<SpotSignal>(new UnboundedChannelOptions
         {
             SingleReader = true // Tylko ta jedna konkretna strona Blazor czyta z tego kanału
         });
 
-        _activeConnections[userId] = new UserSubscription(userId, userRoles, userChannel.Writer);
+        _activeConnections[userId] = new UserSubscription(userId, userRoles, carrierGroups, userChannel.Writer);
         
         return userChannel.Reader;
     }
@@ -53,6 +53,6 @@ public class SpotChannelManager()
         return _activeConnections.Values;
     }
        
-    public record UserSubscription(Guid UserId, List<Role.User> UserRoles, ChannelWriter<SpotSignal> Writer);
+    public record UserSubscription(Guid UserId, List<Role.User> UserRoles, List<Guid>? CarrierGroups, ChannelWriter<SpotSignal> Writer);
     
 }

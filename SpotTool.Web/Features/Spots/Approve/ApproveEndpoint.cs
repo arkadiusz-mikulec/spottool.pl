@@ -16,7 +16,8 @@ public class ApproveEndpoint(
     IDocumentSession _session, 
     SpotDistribution _spotDistribution,
     Channel<Guid> _wakeupChannel,
-    IDateTimeProvider _dateTimeProvider) : EndpointWithoutRequest<Response>
+    IDateTimeProvider _dateTimeProvider,
+    SpotService _spotService) : EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -61,7 +62,13 @@ public class ApproveEndpoint(
 
         await _session.SaveChangesAsync(ct);
 
-        _ = _spotDistribution.SendSpotDataToAuthorizedUsersAsync(spot);
+        var spotModel = new SpotModel(
+            spot, 
+            null, 
+            await _spotService.GetSpotGroups(spot.Id, ct),
+            await _spotService.GetUsersExcluded(spot.Id, ct)
+        );
+        _ = _spotDistribution.SendSpotApproveToAuthorizedUsers(spotModel);
         _wakeupChannel.Writer.TryWrite(spot.Id);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);

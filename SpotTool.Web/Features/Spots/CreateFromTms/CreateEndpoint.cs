@@ -41,7 +41,8 @@ public class CreateEndpoint(
     IDocumentSession _session, 
     SpotDistribution _spotDistributor,
     Channel<Guid> _wakeupChannel,
-    IDateTimeProvider _dateTimeProvider) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+    IDateTimeProvider _dateTimeProvider,
+    SpotService _spotService) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     
     public override void Configure()
@@ -82,9 +83,15 @@ public class CreateEndpoint(
         });
 
         await _session.SaveChangesAsync(ct);
-
         
-        _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
+        var spotModel = new SpotModel(
+            spot, 
+            null,
+            await _spotService.GetSpotGroups(spot.Id, ct),
+            await _spotService.GetUsersExcluded(spot.Id, ct)
+        );
+        _ = _spotDistributor.SendSpotCreatedToAuthorizedUsers(spotModel);
+
         if(spot.CurrentStatus == Status.Spot.Ok)
             _wakeupChannel.Writer.TryWrite(id);
         

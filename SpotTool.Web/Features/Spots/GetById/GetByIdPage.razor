@@ -47,14 +47,14 @@
                     <MudTh>Operations</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Id">@context.Spot.Id</MudTd>
-                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
+                    <MudTd DataLabel="Id">@context.SpotModel.Spot.Id</MudTd>
+                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.SpotModel.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
                     <MudTd DataLabel="Current Status">
-                        <MudChip T="string" Color="@context.StatusUIRespond.GetStatusProperties().color">
+                        <MudChip T="string" Color="@context.StatusUIRespond.GetStatusProperties().color" Style="@context.StatusUIRespond.GetStatusProperties().style">
                             @context.StatusUIRespond.GetStatusProperties().text</MudChip>
                     </MudTd>
-                    <MudTd DataLabel="Contact person">@(context.Spot.ContactDetails?.Email ?? context.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
-                    <MudTd DataLabel="Contact phone" HideSmall="true">@context.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
+                    <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
+                    <MudTd DataLabel="Contact phone" HideSmall="true">@context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
                     <MudTd DataLabel="Operations">
                         @string.Format("Btm: {0}", string.Join(" + ", context.SpotButtons.Select(m=>m.ButtonText)))
                     </MudTd>
@@ -122,7 +122,7 @@
         Console.WriteLine($"Current user: {userDataProvider.Email}");
         
 
-        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles);
+        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles, userDataProvider.userGroups);
 
         DateTimeOffset start = new DateTimeOffset(
             DateOnly.FromDateTime(
@@ -176,7 +176,6 @@
     {
         try
         {
-            Console.WriteLine("Consuming..");
             // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
             // i nie wywołano anulowania (np. poprzez zamknięcie strony)
             await foreach (var signal in reader.ReadAllAsync(cts.Token))
@@ -186,28 +185,67 @@
                 {
                     switch(signal.Type)
                     {
-                        case SignalType.SpotAdded:
-                            if (signal.Spot != null)
+                        case SignalType.SpotCreate:
+                            if (signal.SpotUiRespond != null)
                             { 
                                 Console.WriteLine("Add/edit spot");
-                                var spot = Spots.FirstOrDefault(s => s.Spot.Id == signal.Spot.Spot.Id);
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
                                 if (spot is null)
-                                    Spots.Add(signal.Spot);
-                                else
-                                {
-                                    //tmp solution for approve and Update spot deadline
-                                    spot.Spot.DeadLine = signal.Spot.Spot.DeadLine;
-                                } 
+                                    Spots.Add(signal.SpotUiRespond);
                             }
                             break;
 
                         case SignalType.SpotStatusUpdate:
-                            if (signal.StatusUpdate != null)
+                            if (signal.SpotStatusUIRespond != null)
                             {
                                 Console.WriteLine("Update spot status");
-                                var spot = Spots.FirstOrDefault(s => s.Spot.Id == signal.StatusUpdate.SpotId);
-                                if (spot != null) 
-                                    spot.StatusUIRespond = signal.StatusUpdate; // Aktualizacja statusu w tabeli
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
+                                if (spot is not null) 
+                                    spot.StatusUIRespond = signal.SpotStatusUIRespond; // Aktualizacja statusu w tabeli
+                            }
+                            break;
+                        case SignalType.SpotApprove:
+                            if (signal.SpotUiRespond != null)
+                            {
+                                Console.WriteLine("spot approve signal");
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
+                                if (spot is not null) 
+                                    spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
+                                else
+                                    Spots.Add(signal.SpotUiRespond);
+                            }
+                            break;
+                        case SignalType.SpotDeadLineUpdate:
+                            if (signal.SpotDeadlineUpdateRespond is not null)
+                            {
+                                Console.WriteLine("spot deadline update signal");
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotDeadlineUpdateRespond.SpotId);
+                                if (spot is not null)
+                                    spot.SpotModel.Spot.DeadLine = signal.SpotDeadlineUpdateRespond.DeadLine;
+                            }
+                            break;
+                        case SignalType.OfferCreate:
+                            if (signal.SpotStatusUIRespond is not null)
+                            {
+                                Console.WriteLine("offer Create signal");
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
+                                if (spot is not null)
+                                {
+                                    //Chodzi o to ze jak pojawai sie jakkolwiek oferta to moze zmienic sie StatusUIComponent (ostatnia oferta)
+                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
+                                } 
+                            }
+                            break;
+                        case SignalType.OfferReject:
+                            if (signal.SpotStatusUIRespond is not null)
+                            {
+                                Console.WriteLine("offer reject signal");
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
+                                if (spot is not null)
+                                {
+                                    //Chodzi o to ze jak pojawai sie jakkolwiek oferta to moze zmienic sie StatusUIComponent (ostatnia oferta)
+                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
+                                } 
                             }
                             break;
                     }

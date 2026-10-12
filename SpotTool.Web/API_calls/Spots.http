@@ -1,6 +1,6 @@
 @host = http://localhost:5017
 
-@spotId = 01a123f9-e4fc-7570-9025-120cd65168ae
+@spotId = 01a130af-e9f0-7be1-9891-e89cc78ee4bf
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
 Content-Type: application/json
@@ -24,7 +24,7 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "SpotDeadline": "2026-10-09T16:55:12+02:00"
+    "SpotDeadline": "2026-10-12T22:45:12+02:00"
 }
 
 ### Add Offer
@@ -46,7 +46,15 @@ Content-Type: application/json
     "SpotId": "{{spotId}}",
     "CreateByUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
     "CreateForUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
-    "Value": 300
+    "Value": 290
 }
 
+### Add offer from amikulec
+@offerId = 
+PATCH  {{host}}/api/v1/integrations/offers/{{offerId}}/reject
+Content-Type: application/json
+
+{
+    "Reason": "Bo tak"
+}
 

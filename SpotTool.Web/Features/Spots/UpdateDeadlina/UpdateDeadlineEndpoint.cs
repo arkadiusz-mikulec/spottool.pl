@@ -26,7 +26,8 @@ public class UpdateDeadlinaEndpoint(
     IDocumentSession _session, 
     SpotDistribution _spotDistributor,
     Channel<Guid> _updateChannel,
-    IDateTimeProvider _dateTimeProvider) : Endpoint<Request>
+    IDateTimeProvider _dateTimeProvider,
+    SpotService _spotService) : Endpoint<Request>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -65,7 +66,11 @@ public class UpdateDeadlinaEndpoint(
                            
         await _session.SaveChangesAsync(ct);
 
-        _ = _spotDistributor.SendSpotDataToAuthorizedUsersAsync(spot);
+        var spotModel = new SpotModel(spot, null,
+            await _spotService.GetSpotGroups(spot.Id, ct),
+            await _spotService.GetUsersExcluded(spot.Id, ct)
+        );
+        _ = _spotDistributor.SendSpotDeadlineUpdateToAuthorizedUsers(spotModel);
         _updateChannel.Writer.TryWrite(spot.Id);
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);

@@ -19,22 +19,22 @@ public static class Status
         Rejected
     }
 
-    public static class SpotName
+    
+    public static string GetStatusName(Status.Spot spotStatus, Role.User userRole)
     {
-        public static string Get(Status.Spot spotStatus, Role.User userRole)
+        if(userRole == Role.User.Issuer)
+            return spotStatus.ToString();
+        
+        switch(spotStatus)
         {
-            if(userRole == Role.User.Issuer)
-                return spotStatus.ToString();
-            
-            switch(spotStatus)
-            {
-                case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
-                case Spot.EndedCostOK:
-                case Spot.EndedCostTooHigh: return "TO CONFIRM";
-                default: return spotStatus.ToString().ToUpper();
-            }
+            case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
+            case Spot.EndedCostOK:
+            case Spot.EndedCostTooHigh: return "TO CONFIRM";
+            case Spot.Bidding: return string.Empty;
+            default: return spotStatus.ToString().ToUpper();
         }
     }
+
 
     public enum OfferValue
     {

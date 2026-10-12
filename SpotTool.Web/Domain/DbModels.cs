@@ -38,7 +38,8 @@ public static class DbModels
     // a carrier dodaje oferte gdzie CreatedBy and For sa takie same
     //W ten sposób mamy info komu wyswietlac oferty (zawsze dla UserId = CreatedForUser.Id)
     //Nic nie modyfikujemy w tej encji tylko dodajemy nowe pola! Pełna historia ofert
-    public record OfferSnapShot(Guid Id, UserSnapShot CreatedByUser, decimal Value, DateTimeOffset CreatedAt, Status.Offer Status, string Remark, DateTimeOffset ValidTill, Currency.Code CurrencyCode);
+    public record OfferSnapShot(Guid Id, UserSnapShot CreatedByUser, decimal Value, DateTimeOffset CreatedAt, Status.Offer Status, string Remark, 
+        DateTimeOffset ValidTill, Currency.Code CurrencyCode);
     public record UserSnapShot(Guid Id, List<Role.User> Roles, Status.User Status, ContactPersonDetail PersonDetail);
 
     /*

@@ -1,3 +1,4 @@
+using FastExpressionCompiler.ImTools;
 using Marten;
 using SpotTool.Web.Contracts;
 using SpotTool.Web.Contracts.UI.Spot;
@@ -29,11 +30,14 @@ public class SpotService(IDocumentSession _session,
     }
 
     //To powinno byc brane z Casch po zatwierdzeniu spota grupy nie moga ulec zmianie!
-     public async Task<List<Guid>> GetSpotGroups(Guid id, CancellationToken ct)
+    public async Task<List<Guid>> GetSpotGroups(Guid id, CancellationToken ct)
     {
         return [];
     }
-
+    public async Task<List<Guid>> GetUsersExcluded(Guid id, CancellationToken ct)
+    {
+        return [];
+    }
     public async Task InitSpotsAsync(Guid connectedUserId, List<Role.User> userRoles, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
     {
         List<DbModels.Spot> spots = [];
@@ -91,8 +95,31 @@ public class SpotService(IDocumentSession _session,
         foreach (var spot in spots)
         {
             var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
+            var usersExcluded = await GetUsersExcluded(spot.Id, ct);
+
             var userSubscibed = _spotChannelManager.GetUserSubscriptionData(connectedUserId);
-            _spotDistribution.SendSpotDataToUserAsync(spot, userSubscibed, groupsAssignedToSpot);
+            List<DbModels.Offer>? offers = null;
+
+            if(connectedUserId == spot.UserId)
+            {
+                offers = [.. await _session.Query<DbModels.Offer>()
+                    .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
+                    .ToAsyncEnumerable(ct)
+                    .ToListAsync(ct)
+                ];
+            }
+            else
+            {
+                offers = [.. await _session.Query<DbModels.Offer>()
+                    .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted && m.UserId == connectedUserId)
+                    .ToAsyncEnumerable(ct)
+                    .ToListAsync(ct)
+                ];   
+            }
+            
+            var spotModel = new SpotModel(spot, offers, groupsAssignedToSpot, usersExcluded);
+            
+            _spotDistribution.SendSpotCreatedToUser(spotModel, userSubscibed);
         }
     }
 }
