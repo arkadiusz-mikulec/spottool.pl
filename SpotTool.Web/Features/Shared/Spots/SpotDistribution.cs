@@ -15,14 +15,14 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
 {
 
     // Wspólna, prywatna metoda dystrybuująca sygnały do właściwych kanałów personalnych
-    public async Task SendSpotDataToAuthorizedUsersAsync(DbModels.Spot spot)
+    public Task SendSpotDataToAuthorizedUsersAsync(DbModels.Spot spot)
     {
         try
         {
             if(spot.CurrentStatus == Status.Spot.NotConfirmed)
             {
                 var userData = _spotChannelManager.GetUserSubscriptionData(spot.UserId);
-                await SendSpotDataToUserAsync(spot, userData, []);
+                _ = SendSpotDataToUserAsync(spot, userData, []);
             }
             else
             {
@@ -30,7 +30,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
                 var activeUsers = _spotChannelManager.GetAllUserSubscriptionData();
                 foreach (var user in activeUsers)
                 {
-                    await SendSpotDataToUserAsync(spot, user, groupsAssignedToSpot);
+                    _ = SendSpotDataToUserAsync(spot, user, groupsAssignedToSpot);
                 }    
             }
         }
@@ -38,6 +38,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
         {
             Console.WriteLine($"[EXCEPTION]: {ex.Message} in SpotDistribution.SendSpotDatatoAuthorize");
         }
+        return Task.CompletedTask;
     }
 
     public async Task SendSpotDataToUserAsync(DbModels.Spot spot, UserSubscription? userSubscription, List<Guid> groupsAssignedToSpot)
@@ -56,7 +57,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
         }
     }
     //Zmienic tak jak jest zrobione funkcja SendSpotDataToAll
-    public async Task SendSpotStatusToAuthorizedUsersAsync(DbModels.Spot spot, CancellationToken ct)
+    public Task SendSpotStatusToAuthorizedUsersAsync(DbModels.Spot spot, CancellationToken ct)
     {
         try
         {
@@ -64,13 +65,14 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
             var activeUsersIds = _spotChannelManager.GetAllUserSubscriptionData();
             foreach (var userId in activeUsersIds)
             {
-                await SendSpotStatusToUserAsync(spot, userId, groupsAssignedToSpot);
+                _ = SendSpotStatusToUserAsync(spot, userId, groupsAssignedToSpot);
             }    
         }
         catch(Exception ex)
         {
             Console.WriteLine($"[Exception]. SpotDistributor.SendSpotStatusToAuthorizedUsersAsync. Msg: {ex.Message}");
         }
+        return Task.CompletedTask;
     }
 
     private async Task SendSpotStatusToUserAsync(DbModels.Spot spot, UserSubscription userSubscription, List<Guid> groupsAssignedToSpot)
