@@ -1,3 +1,4 @@
+using FastExpressionCompiler.ImTools;
 using Marten;
 using Microsoft.AspNetCore.Identity;
 using SpotTool.Web.Contracts;
@@ -49,7 +50,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
-            var spotUiRespond = new SpotUIRespond(spotModel, userRole);
+            var spotUiRespond = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
             var signal = new SpotSignal(SignalType.SpotCreate, spotUiRespond, null, null);
 
             if(!userSubscription.Writer.TryWrite(signal))
@@ -57,14 +58,14 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         }
     }
 
-    public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel)
+    public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel, DbModels.Offer? offer)
     {
         string methodName = "SendOfferCreatedToAuthorizedUsers";
         try
         {
             var activeUsers = _spotChannelManager.GetAllUserSubscriptionData();
             foreach (var user in activeUsers)
-                SendOfferCreatedToUser(spotModel, user);
+                SendOfferCreatedToUser(spotModel, offer, user);
         }
         catch(Exception ex)
         {
@@ -73,7 +74,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         return Task.CompletedTask;
     }
 
-    public void SendOfferCreatedToUser(SpotModel spotModel, UserSubscription? userSubscription)
+    public void SendOfferCreatedToUser(SpotModel spotModel, DbModels.Offer? offer, UserSubscription? userSubscription)
     {
         if(userSubscription is null)
             return;
@@ -82,11 +83,11 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(sendSignal)
         {
             var finallOffers = spotModel.Offers;
-            if(userRole != Role.User.Issuer && userRole != Role.User.Admin)
-                finallOffers  = [.. spotModel!.Offers!.Where(m=>m.CreatedForUser.Id == userSubscription.UserId)];
+            // if(userRole != Role.User.Issuer && userRole != Role.User.Admin)
+            //     finallOffers  = [.. spotModel!.Offers!.Where(m=>m.CreatedForUser.Id == userSubscription.UserId)];
 
-            var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, spotModel.Spot.CurrentStatus, userRole, finallOffers);
-            var signal = new SpotSignal(SignalType.OfferCreate, null, spotStatusUi, null, null); 
+            var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, finallOffers);
+            var signal = new SpotSignal(SignalType.OfferCreate, null, spotStatusUi, offer, null); 
 
             if(!userSubscription.Writer.TryWrite(signal))
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
@@ -101,7 +102,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
 
         if(issuer is not null)
         {
-            var statusUIRespond = new SpotStatusUIRespond(spotId, spotStatus, Role.User.Issuer, offers);        
+            var statusUIRespond = new SpotStatusUIRespond(spotId, bidderId, spotStatus, Role.User.Issuer, offers);        
             var signal = new SpotSignal(SignalType.OfferReject, null, statusUIRespond, null, null); 
 
             if(!issuer.Writer.TryWrite(signal))
@@ -110,7 +111,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
             
         if(bidder is not null)
         {
-            var statusUIRespond = new SpotStatusUIRespond(spotId, spotStatus, Role.User.Bidder, offers);        
+            var statusUIRespond = new SpotStatusUIRespond(spotId, bidderId, spotStatus, Role.User.Bidder, offers);        
             var signal = new SpotSignal(SignalType.OfferReject, null, statusUIRespond, null, null); 
 
             if(!bidder.Writer.TryWrite(signal))
@@ -144,7 +145,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
-            var spotUiRespond = new SpotUIRespond(spotModel, userRole);
+            var spotUiRespond = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
             var signal = new SpotSignal(SignalType.SpotApprove, spotUiRespond, null, null);
 
             if(!userSubscription.Writer.TryWrite(signal))
@@ -210,11 +211,10 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
-
             var signal = new SpotSignal(
                 SignalType.SpotStatusUpdate, 
                 null, 
-                new SpotStatusUIRespond(spotModel.Spot.Id, spotModel.Spot.CurrentStatus, userRole, null),
+                new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers),
                 null, null
             );
 

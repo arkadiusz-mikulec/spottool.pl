@@ -1,4 +1,5 @@
 using ImTools;
+using JasperFx.CodeGeneration.Frames;
 
 namespace SpotTool.Web.Domain.Types;
 
@@ -20,17 +21,20 @@ public static class Status
     }
 
     
-    public static string GetStatusName(Status.Spot spotStatus, Role.User userRole)
+    public static string GetStatusName(Guid userId, Guid? offerUserId, Status.Spot spotStatus, Role.User userRole)
     {
         if(userRole == Role.User.Issuer)
             return spotStatus.ToString();
+        
+        string toConfirm = "TO CONFIRM";
         
         switch(spotStatus)
         {
             case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
             case Spot.EndedCostOK:
-            case Spot.EndedCostTooHigh: return "TO CONFIRM";
-            case Spot.Bidding: return string.Empty;
+            case Spot.EndedCostTooHigh: return toConfirm;
+            case Spot.Bidding: return userId.Equals(offerUserId) ? string.Empty : Spot.Bidding.ToString().ToUpper();
+            case Spot.Negotiation: return userId.Equals(offerUserId) ? Spot.Negotiation.ToString().ToUpper() : toConfirm;
             default: return spotStatus.ToString().ToUpper();
         }
     }

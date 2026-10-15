@@ -1,3 +1,4 @@
+using Marten.Linq.Parsing;
 using SpotTool.Web.Contracts.UI.Offer;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
@@ -7,10 +8,10 @@ namespace SpotTool.Web.Contracts.UI.Spot;
 
 public class SpotUIRespond
 {
-    public SpotUIRespond(SpotModel spotModel, Role.User userRoleForThisSpot)
+    public SpotUIRespond(SpotModel spotModel, Guid UserId, Role.User userRoleForThisSpot)
 {
         SpotModel = spotModel;
-        StatusUIRespond = new SpotStatusUIRespond(spotModel.Spot.Id, spotModel.Spot.CurrentStatus, userRoleForThisSpot, spotModel.Offers);
+        StatusUIRespond = new SpotStatusUIRespond(spotModel.Spot.Id, UserId, spotModel.Spot.CurrentStatus, userRoleForThisSpot, spotModel.Offers);
             
         if(userRoleForThisSpot == Role.User.Bidder)
         {
@@ -65,24 +66,54 @@ public class Button
     public bool IsVisible { get; set; } = true;
 }
 
-public class SpotStatusUIRespond(Guid SpotId, Status.Spot SpotStatus, Role.User UserRole, List<DbModels.Offer>? Offers)
+public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatus, Role.User UserRole, List<DbModels.Offer>? Offers)
 { 
     public Guid SpotId {get;} = SpotId;
+    public Status.Spot CurrentSpotStatus { get; } = SpotStatus;
 
     public (MudBlazor.Color color, string text, string style) GetStatusProperties()
     {
-        var statusInfo = Status.GetStatusName(SpotStatus, UserRole);
         DbModels.Offer? minOffer = null; 
         string textStyle = string.Empty;
+        string statusInfo = string.Empty;
+        string statusName = Status.GetStatusName(UserId, null, CurrentSpotStatus, UserRole); 
+        MudBlazor.Color color = MudBlazor.Color.Dark;
 
-        if(Offers is not null)
-        {
-            minOffer = Offers.MinBy(m=>m.Value);
-            statusInfo += $" {minOffer?.Value} [{minOffer?.CurrencyCode}]";
-            if(minOffer?.Status == Status.Offer.Rejected)
-                textStyle = "text-decoration: line-through;";
+        if(Offers is not null && Offers.Count > 0)
+        {    
+            if(UserRole == Role.User.Issuer)
+            {
+                minOffer = Offers.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
+                color = DefineColor(minOffer);
+                textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";    
+                statusName = Status.GetStatusName(UserId, minOffer?.UserId, CurrentSpotStatus, UserRole);
+
+                if(CurrentSpotStatus == Status.Spot.Negotiation)
+                {
+                    var negOffers = Offers.Where(m=>m.Status == Status.Offer.ToNegotiation);
+
+                    statusInfo = $"{negOffers.Count()} {statusName}";
+                }
+                else
+                {
+                    statusInfo = $"{statusName} {minOffer?.Value} [{minOffer?.CurrencyCode}]";    
+                }
+            }
+            else
+            {
+                var carrierMinOffer = Offers.Where(m=>m.CreatedForUser.Id == UserId).MinBy(m=>m.Value);
+                //to moze byc prostsze.
+                // GetStatusName zwraca tylko opis a pozniej statusInfo = {statusName} jezeli to nie ten User Id lub {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}] 
+                statusName = Status.GetStatusName(UserId, carrierMinOffer?.UserId, CurrentSpotStatus, UserRole);
+                statusInfo = $"{statusName}" + (carrierMinOffer is not null ? $" {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]" : string.Empty);
+                color = DefineColor(carrierMinOffer);
+                textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+            }
         }
-        return (DefineColor(minOffer), statusInfo, textStyle); 
+        else
+            statusInfo = statusName;
+
+        return (color, statusInfo, textStyle); 
     }
 
     private MudBlazor.Color DefineColor(DbModels.Offer? minOffer)
@@ -91,14 +122,18 @@ public class SpotStatusUIRespond(Guid SpotId, Status.Spot SpotStatus, Role.User 
         
         if(UserRole == Role.User.Issuer || UserRole == Role.User.Admin)
         {
-            switch(SpotStatus)
+            switch(CurrentSpotStatus)
             {
                 case Status.Spot.Accepted:
                 case Status.Spot.Ok:
                     color = MudBlazor.Color.Success;        
                 break;
                 case Status.Spot.Bidding:
+                case Status.Spot.Negotiation:
                     color = MudBlazor.Color.Info;
+                break;
+                case Status.Spot.Canceled:
+                    color = MudBlazor.Color.Error;
                 break;
                 default: 
                     color = MudBlazor.Color.Dark;
@@ -107,19 +142,38 @@ public class SpotStatusUIRespond(Guid SpotId, Status.Spot SpotStatus, Role.User 
         }
         else
         {
-            switch(SpotStatus)
+            switch(CurrentSpotStatus)
             {
                 case Status.Spot.Accepted:
                     color = MudBlazor.Color.Success;        
                 break;
                 case Status.Spot.Bidding:
-                    color = minOffer is not null ? 
-                                (minOffer.ValueStatus == Status.OfferValue.Green ? 
-                                    MudBlazor.Color.Success : 
-                                    minOffer.ValueStatus == Status.OfferValue.Yellow ? 
-                                        MudBlazor.Color.Warning : 
-                                        MudBlazor.Color.Error) :
-                                MudBlazor.Color.Info;
+                    {
+                        if(minOffer is not null)
+                        {
+                            if(minOffer.ValueStatus == Status.OfferValue.Green)
+                                color = MudBlazor.Color.Success;
+                            else if(minOffer.ValueStatus == Status.OfferValue.Yellow)
+                                color = MudBlazor.Color.Warning;
+                            else
+                                color = MudBlazor.Color.Error;
+                        }
+                        else
+                            color = MudBlazor.Color.Info;
+                    }
+                break;
+                case Status.Spot.Negotiation:
+                    {
+                        if(minOffer is not null && minOffer.CreatedForUser.Id == UserId)
+                            color = MudBlazor.Color.Info;
+                        else
+                            color = MudBlazor.Color.Error;    
+                    }
+                break;
+                case Status.Spot.Canceled:
+                case Status.Spot.EndedCostOK:
+                case Status.Spot.EndedCostTooHigh:
+                    color = MudBlazor.Color.Error;
                 break;
                 default: 
                     color = MudBlazor.Color.Dark;

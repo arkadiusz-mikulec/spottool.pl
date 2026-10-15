@@ -42,7 +42,7 @@ public class CreateEndpoint(IDocumentSession _session,
         
         offer.Status = Status.Offer.Rejected;
         if(!string.IsNullOrEmpty(req.Reason))
-            offer.Remarks = $"Reject reason: {req.Reason}. {(string.IsNullOrEmpty(offer.Remarks) ? string.Empty : $"Your remark: {offer.Remarks}")}";  
+            offer.RejectReson = req.Reason.Trim().ReplaceLineEndings(" ");
 
         _session.Store(offer);
         

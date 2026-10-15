@@ -23,7 +23,7 @@ public class ApproveEndpoint(
     
     public override void Configure()
     {
-        Post("/api/v1/integrations/spot/{Id}/approve");
+        Patch("/api/v1/integrations/spots/{Id}/approve");
         AllowAnonymous(); // Lub SetupSecurity/Policies dla API Key
     }
 

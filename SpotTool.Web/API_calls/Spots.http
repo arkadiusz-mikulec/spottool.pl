@@ -1,11 +1,10 @@
 @host = http://localhost:5017
+@spotId = 01a14011-987f-7e59-87c6-312126efa909
 
-@spotId = 01a130af-e9f0-7be1-9891-e89cc78ee4bf
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
 Content-Type: application/json
 
-#Request(string UserEmail, string Route, decimal Price, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson);
 {
     "UserEmail": "arkadiusz.mikulec@gmail.com",
     "Route": "DE43->PL01",
@@ -16,41 +15,70 @@ Content-Type: application/json
 GET {{host}}/api/v1/integrations/spots/{{spotId}}
 
 ###Spot approval
-POST {{host}}/api/v1/integrations/spot/{{spotId}}/approve
+PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/approve
+
+###Spot Cancelation
+PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/cancel
+Content-Type: application/json
+
+{
+    "Reason": "Bo tak chciałem"
+}
 
 ### Update spot deadlina
-PATCH  {{host}}/api/v1/integrations/spot/update-deadlina
+PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/update-deadlina
 Content-Type: application/json
 
 {
-    "SpotId": "{{spotId}}",
-    "SpotDeadline": "2026-10-12T22:45:12+02:00"
+    "SpotDeadline": "2026-10-15T13:24:12+02:00"
 }
 
-### Add Offer
+### Add Offer by biuro
 POST {{host}}/api/v1/integrations/offers
 Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
-    "CreateForUserId": "01a12095-3ffa-780f-8c31-2aa01f153872",
-    "Value": 600
+    "CreateByUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
+    "CreateForUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
+    "Value": 195
 }
 
-### Add offer from amikulec
+### Add offer by amikulec
 POST {{host}}/api/v1/integrations/offers
 Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
-    "CreateForUserId": "01a12095-3ffa-7fdf-a0a0-37e7545f1c05",
-    "Value": 290
+    "CreateByUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
+    "CreateForUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
+    "Value": 175
 }
 
-### Add offer from amikulec
-@offerId = 
+### Add negotiarion offer by arkadiusz.mikulec for amikulec
+POST {{host}}/api/v1/integrations/offers
+Content-Type: application/json
+
+{
+    "SpotId": "{{spotId}}",
+    "CreateByUserId": "01a13ed3-da4e-7699-aa11-e43d64b3849d",
+    "CreateForUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
+    "Value": 170
+}
+
+### Add negotiarion offer by arkadiusz.mikulec for biuro
+POST {{host}}/api/v1/integrations/offers
+Content-Type: application/json
+
+{
+    "SpotId": "{{spotId}}",
+    "CreateByUserId": "01a13ed3-da4e-7699-aa11-e43d64b3849d",
+    "CreateForUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
+    "Value": 170
+}
+
+### Reject offer from amikulec
+@offerId = 01a131d7-3378-7591-b73f-03c1da6ab666
 PATCH  {{host}}/api/v1/integrations/offers/{{offerId}}/reject
 Content-Type: application/json
 

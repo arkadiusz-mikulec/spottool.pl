@@ -200,8 +200,19 @@
                             {
                                 Console.WriteLine("Update spot status");
                                 var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
-                                if (spot is not null) 
-                                    spot.StatusUIRespond = signal.SpotStatusUIRespond; // Aktualizacja statusu w tabeli
+                                if (spot is not null)
+                                {
+                                    Console.WriteLine($"Current status: {spot.StatusUIRespond.CurrentSpotStatus}");
+                                    if(signal.SpotStatusUIRespond.CurrentSpotStatus == Status.Spot.Deleted)
+                                    {
+                                        if(Spots.Remove(spot))
+                                            Console.WriteLine("Deleted");
+                                        else
+                                            Console.WriteLine("Not deleted");
+                                    }
+                                    else
+                                        spot.StatusUIRespond = signal.SpotStatusUIRespond;
+                                }
                             }
                             break;
                         case SignalType.SpotApprove:
@@ -231,7 +242,6 @@
                                 var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
                                 if (spot is not null)
                                 {
-                                    //Chodzi o to ze jak pojawai sie jakkolwiek oferta to moze zmienic sie StatusUIComponent (ostatnia oferta)
                                     spot.StatusUIRespond = signal.SpotStatusUIRespond;
                                 } 
                             }

@@ -10,12 +10,12 @@ public enum SignalType
         SpotCreate, //done
         SpotStatusUpdate, //done
         SpotDeadLineUpdate, //done
-        SpotCancel,
-        SpotDelete,
+        SpotCancel, //Done by SpotStatusUpdate
+        SpotDelete, //Done by SpotStatusUpdate
         SpotEdit,
         SpotApprove, //done
         OfferCreate, //done
-        OfferReject
+        OfferReject //done
     }
     // Generyczny kontener przesyłający akcję oraz powiązany z nią obiekt danych
 public record SpotSignal(

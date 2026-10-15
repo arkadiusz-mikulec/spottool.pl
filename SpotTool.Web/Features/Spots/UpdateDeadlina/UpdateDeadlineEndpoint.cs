@@ -11,7 +11,7 @@ using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.UpdateDeadlina;
 
-public record Request(Guid SpotId, DateTimeOffset SpotDeadline);
+public record Request(DateTimeOffset SpotDeadline);
 
 
 public class Validator : Validator<Request>
@@ -33,7 +33,7 @@ public class UpdateDeadlinaEndpoint(
     
     public override void Configure()
     {
-        Patch("/api/v1/integrations/spot/update-deadlina");
+        Patch("/api/v1/integrations/spots/{Id}/update-deadlina");
         AllowAnonymous(); // Lub SetupSecurity/Policies dla API Key
     }
 
@@ -41,8 +41,8 @@ public class UpdateDeadlinaEndpoint(
     {
         // Logika biznesowa zapisu do Martena/Postgresa
         
-
-        var spot = await _session.LoadAsync<DbModels.Spot>(req.SpotId, ct);
+        Guid spotId = Route<Guid>("Id");
+        var spot = await _session.LoadAsync<DbModels.Spot>(spotId, ct);
         if(spot is null)
         {
             await Send.NotFoundAsync(ct);

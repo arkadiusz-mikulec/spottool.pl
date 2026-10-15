@@ -28,12 +28,31 @@ public class SpotBgService : BackgroundService
             Console.WriteLine("START");
 
             var nextSpotDeadline = await GetNextSpotDeadlineAsync(stoppingToken);
-            TimeSpan delay = nextSpotDeadline.HasValue ? nextSpotDeadline.Value - _datetimeProvoder.Now() : TimeSpan.FromMilliseconds(-1);
+            var nextNegotiationDeadline = await GetNextNegotiationDeadlineAsync(stoppingToken);
+            var currentTime = _datetimeProvoder.Now();
+            bool isSpotDeadline = true;
 
-            if(delay < TimeSpan.Zero && nextSpotDeadline is not null)
+            TimeSpan delay = TimeSpan.FromMilliseconds(-1);
+            if(nextSpotDeadline.HasValue && nextNegotiationDeadline.HasValue)
+            {
+                delay =  nextSpotDeadline.Value > nextNegotiationDeadline.Value ? 
+                    nextNegotiationDeadline.Value - currentTime :
+                    nextSpotDeadline.Value - currentTime;
+                
+                isSpotDeadline = nextSpotDeadline.Value < nextNegotiationDeadline.Value;
+            }
+            else if(nextSpotDeadline.HasValue && !nextNegotiationDeadline.HasValue)
+                delay =  nextSpotDeadline.Value - currentTime;
+            else if(!nextSpotDeadline.HasValue && nextNegotiationDeadline.HasValue)
+            {
+                isSpotDeadline = false;
+                delay =  nextNegotiationDeadline.Value - currentTime;
+            }
+
+            if(delay < TimeSpan.Zero && (nextSpotDeadline.HasValue || nextNegotiationDeadline.HasValue))
                 delay = TimeSpan.Zero;
 
-            Console.WriteLine($"Now: {_datetimeProvoder.Now()}, SpotDLHasValue: {nextSpotDeadline.HasValue}, Next call for: {delay}");
+            Console.WriteLine($"Now: {currentTime}, SpotDLHasValue: {nextSpotDeadline.HasValue}, NeGdeadLine: {nextNegotiationDeadline.HasValue}, Next call for: {delay}");
 
             // 2. Czekaj na nadejście budzika LUB na pojawienie się nowego spota w kanale
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -43,10 +62,10 @@ public class SpotBgService : BackgroundService
             Task completedTask = await Task.WhenAny([timerTask, channelTask]);    //WhenAny(timerTask, channelTask);
             cts.Cancel(); // Anuluj drugie zadanie, które jeszcze nie skończyło
 
-            if (completedTask == timerTask && nextSpotDeadline is not null)
+            if (completedTask == timerTask)
             {
                 // BUDZIK ZADZWONIŁ! Jakiś spot właśnie się skończył.
-                var closedSpots = await UpdateManySpotsStatusAsync(stoppingToken);
+                var closedSpots = await UpdateManySpotsStatusAsync(isSpotDeadline, stoppingToken);
                 Console.WriteLine($"Zamykam spoty: {string.Join(';', closedSpots)}");
             }
             else
@@ -69,39 +88,66 @@ public class SpotBgService : BackgroundService
 
         var result = await _session.Query<DbModels.Spot>()
             .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
-                m.CurrentStatus == Status.Spot.Bidding || 
-                m.CurrentStatus == Status.Spot.Negotiation)
+                m.CurrentStatus == Status.Spot.Bidding)
             .OrderBy(m=>m.DeadLine)
             .FirstOrDefaultAsync(ct);
-
-        //Console.WriteLine($"Pobieram nowy dealine: {result?.DeadLine} dla spotID: {result?.Id}");
 
         return result?.DeadLine;
     }
 
-    private async Task<List<Guid>> UpdateManySpotsStatusAsync(CancellationToken ct)
+    private async Task<DateTimeOffset?> GetNextNegotiationDeadlineAsync(CancellationToken ct)
+    {
+        using var scope = _serviceProvider.CreateAsyncScope();
+        var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+
+        var resultNegotiation = await _session.Query<DbModels.Spot>()
+            .Where(m=>m.CurrentStatus == Status.Spot.Negotiation)
+            .OrderBy(m=>m.NegotiationDeadLine)
+            .FirstOrDefaultAsync(ct);
+
+        return resultNegotiation?.NegotiationDeadLine;
+    }
+
+    private async Task<List<Guid>> UpdateManySpotsStatusAsync(bool isSpotDeadline, CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateAsyncScope();
         var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
         var spotService = scope.ServiceProvider.GetRequiredService<SpotService>();
 
-        var spotsToUpdate = await _session.Query<DbModels.Spot>()
-            .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
-                m.CurrentStatus == Status.Spot.Bidding || 
-                m.CurrentStatus == Status.Spot.Negotiation &&
-                m.DeadLine <= _datetimeProvoder.Now())
-            .ToListAsync(ct);
+        var currentTime = _datetimeProvoder.Now();
 
+        List<DbModels.Spot> spotsToUpdate = [];
+        
+        if(isSpotDeadline)
+        {
+            spotsToUpdate = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
+                    m.CurrentStatus == Status.Spot.Bidding &&
+                    m.DeadLine <= currentTime)
+                .ToListAsync(ct)
+            ];
+        }
+        else
+        {
+            spotsToUpdate = [.. await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus == Status.Spot.Negotiation &&
+                    m.NegotiationDeadLine <= currentTime)
+                .ToListAsync(ct)
+            ];
+        }
+        
         foreach (var item in spotsToUpdate)
         {
             Status.Spot spotStatus = Status.Spot.EndedNoOffers;
-            var minOrder = await _session.Query<DbModels.Offer>()
-                .Where(m=>m.SpotId == item.Id)
+            
+            var offers = await _session.Query<DbModels.Offer>()
+                .Where(m=>m.SpotId == item.Id && m.CreatedByUser.Id != item.UserId)
                 .OrderBy(m=>m.Value)
-                .FirstOrDefaultAsync(ct);
+                .ToAsyncEnumerable(ct)
+                .ToListAsync(ct);
 
-            if(minOrder is not null)
-                spotStatus = item.TargetedCost >= minOrder.Value ? Status.Spot.EndedCostOK : Status.Spot.EndedCostTooHigh; 
+            if(offers.Count > 0)
+                spotStatus = item.TargetedCost >= offers[0].Value ? Status.Spot.EndedCostOK : Status.Spot.EndedCostTooHigh; 
             
             item.CurrentStatus = spotStatus;
 
@@ -110,7 +156,7 @@ public class SpotBgService : BackgroundService
             //Moge stworzyc channel gdzie wysle cala liste!
             var spotModel = new SpotModel(
                 item, 
-                null, 
+                offers, 
                 await spotService.GetSpotGroups(item.Id, ct),
                 await spotService.GetUsersExcluded(item.Id, ct)
             );

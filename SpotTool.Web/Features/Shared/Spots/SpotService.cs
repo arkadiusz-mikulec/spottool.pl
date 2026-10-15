@@ -63,6 +63,7 @@ public class SpotService(IDocumentSession _session,
             // all spot from date range with current user offer 
             spots.AddRange([.. await _session.Query<DbModels.Spot>()
                 .Where(m=>(m.CurrentStatus == Status.Spot.Ok ||
+                    m.CurrentStatus == Status.Spot.Bidding ||
                     m.BiddersId!.Contains(connectedUserId)) &&
                     m.DeadLine >= start && m.DeadLine <= stop)
                 .ToAsyncEnumerable(ct)
@@ -85,37 +86,43 @@ public class SpotService(IDocumentSession _session,
             // all spot from date range with current user offer 
             spots = [.. await _session.Query<DbModels.Spot>()
                 .Where(m=>(m.CurrentStatus == Status.Spot.Ok ||
+                    m.CurrentStatus == Status.Spot.Bidding ||
                     m.BiddersId!.Contains(connectedUserId)) &&
                     m.DeadLine >= start && m.DeadLine <= stop)
                 .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
         }        
-        
+        spots = [.. spots.OrderBy(m=>m.DeadLine)];
         foreach (var spot in spots)
         {
             var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
             var usersExcluded = await GetUsersExcluded(spot.Id, ct);
 
             var userSubscibed = _spotChannelManager.GetUserSubscriptionData(connectedUserId);
-            List<DbModels.Offer>? offers = null;
-
-            if(connectedUserId == spot.UserId)
-            {
-                offers = [.. await _session.Query<DbModels.Offer>()
+            
+            List<DbModels.Offer>? offers = [.. await _session.Query<DbModels.Offer>()
                     .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
                     .ToAsyncEnumerable(ct)
                     .ToListAsync(ct)
                 ];
-            }
-            else
-            {
-                offers = [.. await _session.Query<DbModels.Offer>()
-                    .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted && m.UserId == connectedUserId)
-                    .ToAsyncEnumerable(ct)
-                    .ToListAsync(ct)
-                ];   
-            }
+
+            // if(connectedUserId == spot.UserId)
+            // {
+            //     offers = [.. await _session.Query<DbModels.Offer>()
+            //         .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
+            //         .ToAsyncEnumerable(ct)
+            //         .ToListAsync(ct)
+            //     ];
+            // }
+            // else
+            // {
+            //     offers = [.. await _session.Query<DbModels.Offer>()
+            //         .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted && m.UserId == connectedUserId)
+            //         .ToAsyncEnumerable(ct)
+            //         .ToListAsync(ct)
+            //     ];   
+            // }
             
             var spotModel = new SpotModel(spot, offers, groupsAssignedToSpot, usersExcluded);
             

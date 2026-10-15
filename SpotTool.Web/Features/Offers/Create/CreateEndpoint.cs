@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using FastEndpoints;
 using FluentValidation;
 using Marten;
@@ -29,7 +30,8 @@ public class Validator : Validator<Request>
 public class CreateEndpoint(IDocumentSession _session, 
     SpotDistribution _spotDistributor,
     IDateTimeProvider _dateTimeProvider,
-    SpotService _spotService) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+    SpotService _spotService,
+    Channel<Guid> _wakeupChannel) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -49,8 +51,38 @@ public class CreateEndpoint(IDocumentSession _session,
             await Send.NotFoundAsync(ct);
             return; //Task.FromResult(new ProblemDetails();
         }
+    
+        var createdForUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateForUserId, ct);
+        if(createdForUser is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        var prevSpotStatus = spot.CurrentStatus;
+        var offerStatus = Status.Offer.Ok;
+        var createdByUser = createdForUser;
+
+        if(!req.CreateByUserId.Equals(req.CreateForUserId))
+        {
+            offerStatus = Status.Offer.ToNegotiation;
+            spot.CurrentStatus = Status.Spot.Negotiation;
+            spot.NegotiationDeadLine = _dateTimeProvider.Now().AddMinutes(2);
+            createdByUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateByUserId, ct);
+            if(createdByUser is null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+        }
+        else if(spot.CurrentStatus == Status.Spot.Negotiation)
+        {
+            offerStatus = Status.Offer.Negotiated;   
+        }
         
-        if(!CanAcceptOffer(spot!.CurrentStatus, spot.DeadLine, _dateTimeProvider.Now()))
+        spot.CurrentStatus = NextSpotStatus(spot, req.Value); 
+
+        if(!CanAcceptOffer(spot.CurrentStatus, spot.DeadLine, _dateTimeProvider.Now()))
         {
             await Send.ResultAsync(TypedResults.Problem(
                 detail: "Offer cannot be accepted.",
@@ -61,28 +93,6 @@ public class CreateEndpoint(IDocumentSession _session,
             return;
         }
 
-        var createdForUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateForUserId, ct);
-        if(createdForUser is null)
-        {
-            await Send.NotFoundAsync(ct);
-            return;
-        }
-
-        var offerStatus = Status.Offer.Ok;
-        var createdByUser = createdForUser;
-
-        if(!req.CreateByUserId.Equals(req.CreateForUserId))
-        {
-            offerStatus = Status.Offer.ToNegotiation;
-            createdByUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateByUserId, ct);
-            if(createdByUser is null)
-            {
-                await Send.NotFoundAsync(ct);
-                return;
-            }
-    
-        } 
-
         var spotOffers = await _session.Query<DbModels.Offer>()
             .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
             .OrderBy(m=>m.Value)
@@ -92,17 +102,19 @@ public class CreateEndpoint(IDocumentSession _session,
             // .OrderBy(m=>m.Item2)
             // .ToAsyncEnumerable(ct)
             // .ToListAsync(ct);
-        // if(spotOffers.Count > 0)
-        // {
-            
-        // }
-        var minOffer = spotOffers.Count > 0 ? spotOffers[0] : null;
-        decimal minOfferValue = minOffer is null ? 
-            req.Value : 
-            minOffer!.Value < req.Value ? 
+
+        decimal minOfferValue = req.Value;
+        DbModels.Offer? minOffer = spotOffers.MinBy(m=>m.Value);
+        if(minOffer is not null)
+            minOfferValue = minOffer.Value < req.Value ? 
                 minOffer.Value : 
-                req.Value
-        ;
+                req.Value;
+        
+        if(spot.CurrentStatus == Status.Spot.Bidding)
+        {
+            var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. spotOffers.Where(m=>m.Value > minOfferValue)]);
+            UpdateOffers(_session, offersToUpdate);
+        }
 
         Guid id = Guid.CreateVersion7();
         var offer = new DbModels.Offer
@@ -115,42 +127,25 @@ public class CreateEndpoint(IDocumentSession _session,
             ValidTill = req.ValidTill ?? _dateTimeProvider.Now().AddHours(2),
             Value = req.Value,
             CurrencyCode = req.CurrencyCode ?? Currency.Code.EUR,
-            Remarks = req.Remark,
+            Remarks = req.Remark?.Trim().ReplaceLineEndings(" "),
             Status = offerStatus,
-            ValueStatus = SetOfferValueStatus(req.Value, minOffer).Item1
+            ValueStatus = SetOfferValueStatus(req.Value, minOfferValue).Item1
         };
-        
 
         if(spot.BiddersId is not null)
         {
-            //Console.WriteLine("Sprawdzam czy bidderId exist");
             if(!spot.BiddersId.Contains(req.CreateForUserId))
-            {
-                //Console.WriteLine($"Dodaje biddera: {req.CreateByUserId}");
-                spot.BiddersId.Add(req.CreateByUserId);   
-            }
-            // else
-            //     Console.WriteLine($"bidder: {req.CreateByUserId} exist!!");
+               spot.BiddersId.Add(req.CreateForUserId);   
         }
         else
-        {
-            //Console.WriteLine($"Dodaje #1 biddera: {req.CreateByUserId}");
             spot.BiddersId = [req.CreateForUserId];
-        }
 
-        var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. spotOffers.Where(m=>m.Value > minOfferValue)]);
-        UpdateOffers(_session, offersToUpdate);
-
-        var nextStatus = NextSpotStatus(spot, req.Value);
-        if(spot.CurrentStatus != nextStatus)
+        if(spot.CurrentStatus != prevSpotStatus)
         {
-            spot.CurrentStatus = nextStatus;
-            
-            //_session.Patch<DbModels.Spot>(spot.Id).Set(m=>m.CurrentStatus, nextStatus);
             _session.Store(new DbModels.SpotStatusHistory
             {
                 SpotId = req.SpotId,
-                SpotStatus = nextStatus
+                SpotStatus = spot.CurrentStatus
             });
         }
 
@@ -158,18 +153,18 @@ public class CreateEndpoint(IDocumentSession _session,
         _session.Store(offer);
         
         await _session.SaveChangesAsync(ct);
-
-    
+        
         spotOffers.Add(offer);
-
-        Czy nie wystarczy SpotStatusUIRespond?
         var spotModel = new SpotModel(
             spot, 
             spotOffers,
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct) 
         );
-        _ = _spotDistributor.SendOfferCreatedToAuthorizedUsers(spotModel);
+        _ = _spotDistributor.SendOfferCreatedToAuthorizedUsers(spotModel, offer);
+
+        if(offer.Status == Status.Offer.ToNegotiation)
+            _wakeupChannel.Writer.TryWrite(spot.Id);
         
         // // Błyskawiczna odpowiedź 201 Created
         // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
@@ -190,13 +185,15 @@ public class CreateEndpoint(IDocumentSession _session,
     {
         //bool afterDeadLine = spot.DeadLine >= _dateTimeProvider.Now();
 
-        if(spot.CurrentStatus == Status.Spot.Negotiation)
-        {
-            return spot.TargetedCost < value ? Status.Spot.EndedCostTooHigh : Status.Spot.EndedCostOK;
-        }
-        else if(spot.CurrentStatus == Status.Spot.Ok)
-            return Status.Spot.Bidding;
+        // if(spot.CurrentStatus == Status.Spot.Negotiation)
+        // {
+        //     return spot.TargetedCost < value ? Status.Spot.EndedCostTooHigh : Status.Spot.EndedCostOK;
+        // }
+        // else if(spot.CurrentStatus == Status.Spot.Ok)
+        //     return Status.Spot.Bidding;
 
+        if(spot.CurrentStatus == Status.Spot.Ok)
+            return Status.Spot.Bidding;
         return spot.CurrentStatus;
     }
 
@@ -210,18 +207,10 @@ public class CreateEndpoint(IDocumentSession _session,
     {
         return calculateInPercentage ? 100 - (addedValue * 100 / existedMinOfferValue) : addedValue - existedMinOfferValue;
     }
-    private static (Status.OfferValue, decimal) SetOfferValueStatus(decimal value, DbModels.Offer? minOffer)
+    private static (Status.OfferValue, decimal) SetOfferValueStatus(decimal value, decimal minOfferValue)
     {
-        //int maxCountForOneGreenOffer = 3;
-        (Status.OfferValue offerStatus, decimal difference) result = (Status.OfferValue.Green, 0);
-    
-        if(minOffer is null)
-            return result;
-
-        decimal different = CalculateDifferent(value, minOffer.Value);
-        result = (CalculateOfferStatus(new CalculationModel(different)), different);
-
-        return result;
+        decimal different = CalculateDifferent(value, minOfferValue);
+        return (CalculateOfferStatus(new CalculationModel(different)), different);
     }
 
     private static Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> FindOffersToUpdate(decimal minOffer, List<DbModels.Offer> restOfOffers)
@@ -229,12 +218,16 @@ public class CreateEndpoint(IDocumentSession _session,
         Dictionary<Guid, (Status.OfferValue, decimal difference)> offersToUpdate = [];
         foreach (var item in restOfOffers)
         {
-            decimal difference = CalculateDifferent(minOffer, item.Value);
-            
+            decimal difference = CalculateDifferent(item.Value, minOffer);
             var newStatus = CalculateOfferStatus(new CalculationModel(difference));
 
+            Console.WriteLine($"Dif for offer value: {item.Value} and minValue: {minOffer} is {difference}. New status: {newStatus}");   
+            
             if(newStatus != item.ValueStatus)
+            {
                 offersToUpdate[item.Id] = (newStatus, difference);
+                Console.WriteLine($"dodaje do aktualizacja value: {item.Value} new status: {newStatus}");
+            }
         }
         return offersToUpdate;
     }
@@ -243,6 +236,7 @@ public class CreateEndpoint(IDocumentSession _session,
     {
         foreach (var item in offersToUpdate.Keys)
         {
+            Console.WriteLine($"Aktualizjuje ID: {item} with status: {offersToUpdate[item].newStatus}");
             _session.Patch<DbModels.Offer>(item)
                 .Set(m=>m.ValueStatus, offersToUpdate[item].newStatus);
         }
