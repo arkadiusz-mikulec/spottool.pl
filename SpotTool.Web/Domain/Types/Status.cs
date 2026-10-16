@@ -12,28 +12,23 @@ public static class Status
         Deleted,
         Bidding,
         Canceled,
-        EndedNoOffers,
-        EndedCostOK,
-        EndedCostTooHigh,
+        EndedNoOffer,
+        Ended,
         Negotiation,
         Accepted,
         Rejected
     }
 
     
-    public static string GetStatusName(Status.Spot spotStatus, Role.User userRole)
+    public static Status.Spot GetStatusName(Status.Spot spotStatus, Role.User userRole)
     {
         if(userRole == Role.User.Issuer)
-            return spotStatus.ToString();
-        
-        string toConfirm = "TO CONFIRM";
+            return spotStatus;
         
         switch(spotStatus)
         {
-            case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
-            case Spot.EndedCostOK:
-            case Spot.EndedCostTooHigh: return toConfirm;
-            default: return spotStatus.ToString().ToUpper();
+            case Spot.Ok: return Spot.Bidding;
+            default: return spotStatus;
         }
     }
 

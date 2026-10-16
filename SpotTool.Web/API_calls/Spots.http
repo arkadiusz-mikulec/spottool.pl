@@ -1,5 +1,5 @@
 @host = http://localhost:5017
-@spotId = 01a14011-987f-7e59-87c6-312126efa909
+@spotId = 01a14686-0e7d-7eb5-b098-c0de5cdf00e1
 
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
@@ -30,7 +30,7 @@ PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/update-deadlina
 Content-Type: application/json
 
 {
-    "SpotDeadline": "2026-10-15T13:24:12+02:00"
+    "SpotDeadline": "2026-10-16T21:36:12+02:00"
 }
 
 ### Add Offer by biuro
@@ -39,9 +39,9 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
-    "CreateForUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
-    "Value": 195
+    "CreateByUserId": "01a14685-cc54-75cc-b177-73a38f116bb5",
+    "CreateForUserId": "01a14685-cc54-75cc-b177-73a38f116bb5",
+    "Value": 1950
 }
 
 ### Add offer by amikulec
@@ -50,8 +50,8 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
-    "CreateForUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
+    "CreateByUserId": "01a14685-cc54-7977-ab8d-230ab13e5e1a",
+    "CreateForUserId": "01a14685-cc54-7977-ab8d-230ab13e5e1a",
     "Value": 175
 }
 
@@ -61,9 +61,9 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a13ed3-da4e-7699-aa11-e43d64b3849d",
-    "CreateForUserId": "01a13ed3-da58-77e0-9e43-633136cfff09",
-    "Value": 170
+    "CreateByUserId": "01a14685-cc4f-7106-a6ae-a054112585a6",
+    "CreateForUserId": "01a14685-cc54-7977-ab8d-230ab13e5e1a",
+    "Value": 17
 }
 
 ### Add negotiarion offer by arkadiusz.mikulec for biuro
@@ -72,8 +72,8 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a13ed3-da4e-7699-aa11-e43d64b3849d",
-    "CreateForUserId": "01a13ed3-da58-7b75-9a26-9dd5c6826d73",
+    "CreateByUserId": "01a14685-cc4f-7106-a6ae-a054112585a6",
+    "CreateForUserId": "01a14685-cc54-75cc-b177-73a38f116bb5",
     "Value": 170
 }
 

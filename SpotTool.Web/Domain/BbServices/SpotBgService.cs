@@ -138,7 +138,7 @@ public class SpotBgService : BackgroundService
         
         foreach (var item in spotsToUpdate)
         {
-            Status.Spot spotStatus = Status.Spot.EndedNoOffers;
+            Status.Spot spotStatus = Status.Spot.EndedNoOffer;
             
             var offers = await _session.Query<DbModels.Offer>()
                 .Where(m=>m.SpotId == item.Id && m.CreatedByUser.Id != item.UserId)
@@ -147,7 +147,7 @@ public class SpotBgService : BackgroundService
                 .ToListAsync(ct);
 
             if(offers.Count > 0)
-                spotStatus = item.TargetedCost >= offers[0].Value ? Status.Spot.EndedCostOK : Status.Spot.EndedCostTooHigh; 
+                spotStatus = Status.Spot.Ended; //item.TargetedCost >= offers[0].Value ? Status.Spot.EndedCostOK : Status.Spot.EndedCostTooHigh; 
             
             item.CurrentStatus = spotStatus;
 

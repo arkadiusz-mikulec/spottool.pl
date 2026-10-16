@@ -87,7 +87,7 @@ public static class InitModels
             {
                 SpotId = spotId,
                 CreatedByUser = carrier,
-                SpotStatus = Status.Spot.EndedCostTooHigh,
+                SpotStatus = Status.Spot.Ended,
                 //CreatedAt = DateTimeOffset.UtcNow.AddMinutes(17).ToLocalTime()
             },
             new DbModels.SpotStatusHistory
@@ -101,7 +101,7 @@ public static class InitModels
             {
                 SpotId = spotId,
                 CreatedByUser = carrier,
-                SpotStatus = Status.Spot.EndedCostTooHigh,
+                SpotStatus = Status.Spot.Ended,
                 //CreatedAt = DateTimeOffset.UtcNow.AddMinutes(17).ToLocalTime()
             },
             new DbModels.SpotStatusHistory

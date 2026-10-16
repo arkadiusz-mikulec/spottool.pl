@@ -73,25 +73,24 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
 
     public (MudBlazor.Color color, string text, string style) GetStatusProperties()
     {
-        DbModels.Offer? minOffer = null; 
+        //DbModels.Offer? minOffer = null; 
         string textStyle = string.Empty;
-        string statusInfo = string.Empty;
-        string statusName = Status.GetStatusName(CurrentSpotStatus, UserRole); 
-        MudBlazor.Color color = DefineColor(null);
+        var statusToPresent = Status.GetStatusName(CurrentSpotStatus, UserRole); 
+        string statusInfo = statusToPresent.ToString().ToUpper();
+        MudBlazor.Color color = DefineColor(statusToPresent);
 
         if(Offers is not null && Offers.Count > 0)
         {    
             if(UserRole == Role.User.Issuer)
             {
-                minOffer = Offers.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
-                color = DefineColor(null);
+                var minOffer = Offers.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
                 textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";    
-                statusInfo = $"{statusName} {minOffer?.Value} [{minOffer?.CurrencyCode}]";
+                statusInfo = $"{statusToPresent} {minOffer?.Value} [{minOffer?.CurrencyCode}]";
 
                 if(CurrentSpotStatus == Status.Spot.Negotiation)
                 {
                     var negOffers = Offers.Where(m=>m.Status == Status.Offer.ToNegotiation);
-                    statusInfo = $"{negOffers.Count()} {statusName}";
+                    statusInfo = $"{negOffers.Count()} {statusToPresent}";
                 }
             }
             else
@@ -103,37 +102,36 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     statusInfo = $"{carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
                 }
                 else
-                    statusInfo = $"{statusName}";    
+                    statusInfo = $"{statusToPresent}";    
 
-                color = DefineColor(carrierMinOffer);
+                color = DefineColor(statusToPresent, carrierMinOffer);
 
                 if(CurrentSpotStatus == Status.Spot.Negotiation)
                 {
                     var negOffer = Offers.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.Status == Status.Offer.ToNegotiation);
                     if(negOffer is not null)
                     {
-                        statusInfo = $"{statusName} for {negOffer.Value} [{negOffer.CurrencyCode}]";
-                        color = DefineColor(null);    
+                        statusInfo = $"{statusToPresent} for {negOffer.Value} [{negOffer.CurrencyCode}]";    
+                        color = DefineColor(statusToPresent, negOffer);
                     }
                 }
             }
         }
-        else
-            statusInfo = statusName;
 
         return (color, statusInfo, textStyle); 
     }
 
-    private MudBlazor.Color DefineColor(DbModels.Offer? offer)
+    private MudBlazor.Color DefineColor(Status.Spot statusToPresent, DbModels.Offer? offer = null)
     {
         MudBlazor.Color color;
         
         if(UserRole == Role.User.Issuer || UserRole == Role.User.Admin)
         {
-            switch(CurrentSpotStatus)
+            switch(statusToPresent)
             {
                 case Status.Spot.Accepted:
                 case Status.Spot.Ok:
+                case Status.Spot.Ended:
                     color = MudBlazor.Color.Success;        
                 break;
                 case Status.Spot.Bidding:
@@ -141,6 +139,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     color = MudBlazor.Color.Info;
                 break;
                 case Status.Spot.Canceled:
+                case Status.Spot.EndedNoOffer:
                     color = MudBlazor.Color.Error;
                 break;
                 default: 
@@ -150,7 +149,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
         }
         else
         {
-            switch(CurrentSpotStatus)
+            switch(statusToPresent)
             {
                 case Status.Spot.Ok:
                 case Status.Spot.Accepted:
@@ -180,9 +179,9 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     }
                 break;
                 case Status.Spot.Canceled:
-                case Status.Spot.EndedCostOK:
-                case Status.Spot.EndedCostTooHigh:
-                    color = MudBlazor.Color.Error;
+                case Status.Spot.EndedNoOffer:
+                case Status.Spot.Ended:
+                    color = MudBlazor.Color.Error;                  
                 break;
                 default: 
                     color = MudBlazor.Color.Dark;
