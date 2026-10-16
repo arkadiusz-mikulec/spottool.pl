@@ -76,7 +76,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
         DbModels.Offer? minOffer = null; 
         string textStyle = string.Empty;
         string statusInfo = string.Empty;
-        string statusName = Status.GetStatusName(UserId, null, CurrentSpotStatus, UserRole); 
+        string statusName = Status.GetStatusName(CurrentSpotStatus, UserRole); 
         MudBlazor.Color color = MudBlazor.Color.Dark;
 
         if(Offers is not null && Offers.Count > 0)
@@ -86,8 +86,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                 minOffer = Offers.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
                 color = DefineColor(minOffer);
                 textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";    
-                statusName = Status.GetStatusName(UserId, minOffer?.UserId, CurrentSpotStatus, UserRole);
-
+                
                 if(CurrentSpotStatus == Status.Spot.Negotiation)
                 {
                     var negOffers = Offers.Where(m=>m.Status == Status.Offer.ToNegotiation);
@@ -102,12 +101,39 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
             else
             {
                 var carrierMinOffer = Offers.Where(m=>m.CreatedForUser.Id == UserId).MinBy(m=>m.Value);
-                //to moze byc prostsze.
-                // GetStatusName zwraca tylko opis a pozniej statusInfo = {statusName} jezeli to nie ten User Id lub {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}] 
-                statusName = Status.GetStatusName(UserId, carrierMinOffer?.UserId, CurrentSpotStatus, UserRole);
-                statusInfo = $"{statusName}" + (carrierMinOffer is not null ? $" {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]" : string.Empty);
-                color = DefineColor(carrierMinOffer);
-                textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+                if(CurrentSpotStatus == Status.Spot.Negotiation)
+                {
+                    var negOffer = Offers.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.Status == Status.Offer.ToNegotiation);
+                    if(negOffer is not null)
+                    {
+                        statusInfo = $"{statusName} for {negOffer.Value} [{negOffer.CurrencyCode}]";
+                        color = DefineColor(negOffer);    
+                    }
+                    else
+                    {
+                        if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                        {
+                            textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+                            statusInfo = $"{carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
+                        }
+                        else
+                            statusInfo = $"{statusName}";
+
+                        color = DefineColor(carrierMinOffer);        
+                    }
+                }
+                else
+                {
+                    if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                    {
+                        textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+                        statusInfo = $"{carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
+                    }
+                    else
+                        statusInfo = $"{statusName}";    
+
+                    color = DefineColor(carrierMinOffer);
+                }
             }
         }
         else
@@ -144,6 +170,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
         {
             switch(CurrentSpotStatus)
             {
+                case Status.Spot.Ok:
                 case Status.Spot.Accepted:
                     color = MudBlazor.Color.Success;        
                 break;
@@ -164,7 +191,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                 break;
                 case Status.Spot.Negotiation:
                     {
-                        if(minOffer is not null && minOffer.CreatedForUser.Id == UserId)
+                        if(minOffer is not null && minOffer.CreatedForUser.Id == UserId && minOffer.Status == Status.Offer.ToNegotiation)
                             color = MudBlazor.Color.Info;
                         else
                             color = MudBlazor.Color.Error;    

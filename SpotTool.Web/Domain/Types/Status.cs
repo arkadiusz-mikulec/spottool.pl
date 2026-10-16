@@ -21,7 +21,7 @@ public static class Status
     }
 
     
-    public static string GetStatusName(Guid userId, Guid? offerUserId, Status.Spot spotStatus, Role.User userRole)
+    public static string GetStatusName(Status.Spot spotStatus, Role.User userRole)
     {
         if(userRole == Role.User.Issuer)
             return spotStatus.ToString();
@@ -33,8 +33,6 @@ public static class Status
             case Spot.Ok: return Spot.Bidding.ToString().ToUpper();
             case Spot.EndedCostOK:
             case Spot.EndedCostTooHigh: return toConfirm;
-            case Spot.Bidding: return userId.Equals(offerUserId) ? string.Empty : Spot.Bidding.ToString().ToUpper();
-            case Spot.Negotiation: return userId.Equals(offerUserId) ? Spot.Negotiation.ToString().ToUpper() : toConfirm;
             default: return spotStatus.ToString().ToUpper();
         }
     }
