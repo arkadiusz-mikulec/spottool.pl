@@ -1,0 +1,58 @@
+@using MudBlazor
+@using SpotTool.Web.Domain
+@using SpotTool.Web.Domain.Types
+
+<MudDialog>
+    <TitleContent>
+        @MudDialog?.Title
+    </TitleContent>
+    <DialogContent>
+        <MudTable Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                <HeaderContent>
+                    <MudTh>Id</MudTh>
+                    <MudTh>Bidder</MudTh>
+                    <MudTh>Value</MudTh>
+                    <MudTh>Currency</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Bid's feedback</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Id">@context.Id</MudTd>
+                    <MudTd DataLabel="Bidder">
+                        @(context.Status == Status.Offer.ToNegotiation ? context.CreatedByUser.PersonDetail.Email : context.CreatedForUser.PersonDetail.Email)
+                    </MudTd>
+                    <MudTd DataLabel="Value">@context.Value</MudTd>    
+                    <MudTd DataLabel="Currency">@context.CurrencyCode</MudTd>    
+                    <MudTd DataLabel="Status">@context.Status</MudTd>                   
+                    <MudTd DataLabel="Feedback">
+                        @{
+                            var color = GetOfferColor(@context.ValueStatus);
+                        }
+                        <MudChip T="string" Color="@color">@context.ValueStatus.ToString()[0]</MudChip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public List<DbModels.Offer> Offers { get; set; } = new();
+    private void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    MudBlazor.Color GetOfferColor(Status.OfferValue offerValue) => offerValue switch
+    {
+        Status.OfferValue.Green => MudBlazor.Color.Success,
+        Status.OfferValue.Yellow => MudBlazor.Color.Warning,
+        _ => MudBlazor.Color.Error
+    };
+}

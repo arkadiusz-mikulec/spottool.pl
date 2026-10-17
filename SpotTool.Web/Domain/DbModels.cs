@@ -57,6 +57,7 @@ public static class DbModels
         public Status.Offer Status { get; set; } = Types.Status.Offer.Ok;
         public Status.OfferValue ValueStatus { get; set; } = Types.Status.OfferValue.Green;
         public decimal Value { get; set; }
+        public decimal DeltaToMinOffer {get; set;}
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public bool IsWinnerOffer { get; set; } = false;
         public string? Remarks {get; set;}

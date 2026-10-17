@@ -22,12 +22,13 @@
 @inject UserService _userService
 @inject NavigationManager _navi
 @inject IConfiguration _appConfig
+@inject IDialogService DialogService
 
 
-<MudSelect @bind-Value="currentUserId">
-    <MudSelectItem Value="1">@("arkadiusz.mikulec@gmail.com")"</MudSelectItem>
-    <MudSelectItem Value="2">@("amikulec@sostmeier.pl")"</MudSelectItem>
-    <MudSelectItem Value="3">@("biuro@e-site.pl")"</MudSelectItem>
+<MudSelect @bind-Value="@currentUserId">
+    <MudSelectItem Value="1">@("arkadiusz.mikulec@gmail.com")</MudSelectItem>
+    <MudSelectItem Value="2">@("amikulec@sostmeier.pl")</MudSelectItem>
+    <MudSelectItem Value="3">@("biuro@e-site.pl")</MudSelectItem>
 </MudSelect>
 
 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateUser">Update</MudButton> 
@@ -50,8 +51,13 @@
                     <MudTd DataLabel="Id">@context.SpotModel.Spot.Id</MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.SpotModel.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
                     <MudTd DataLabel="Current Status">
-                        <MudChip T="string" Color="@context.StatusUIRespond.GetStatusProperties().color" Style="@context.StatusUIRespond.GetStatusProperties().style">
-                            @context.StatusUIRespond.GetStatusProperties().text</MudChip>
+                        @{
+                            (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
+                        }
+                        <MudChip T="string" Color="@color" Style="@style"
+                            OnClick="((e) => OpenDialogAsync(context.SpotModel.Spot.Id))" Disabled="false">
+                                @text
+                        </MudChip>
                     </MudTd>
                     <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
                     <MudTd DataLabel="Contact phone" HideSmall="true">@context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
@@ -88,7 +94,7 @@
     [Parameter]
     public int UserId {get; set;} = 1;
     List<SpotUIRespond> Spots { get; set; } = [];
-    List<DbModels.Offer> Offers {get; set;} = [];
+    //List<DbModels.Offer> Offers {get; set;} = [];
     private CancellationTokenSource cts = new CancellationTokenSource();
     //private PersistingComponentStateSubscription _subscription; #Checkit
     //int offsetInMinutes = 0;
@@ -100,7 +106,30 @@
     record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, List<Role.User> Roles, Status.User Status);
     UserProvider? userDataProvider = null;
     bool loading {  get; set; } = true;
-    
+
+    private Task OpenDialogAsync(Guid spotId)
+    {
+        var spot = Spots.FirstOrDefault(m=>m.SpotModel.Spot.Id == spotId);
+
+        if(spot is null)
+            return Task.CompletedTask;
+
+        List<DbModels.Offer>? spotOffers = null; 
+            
+        // Issuer. Ale mozemy miec ta dane rowniez w SpotUiRespond
+        if(userDataProvider?.Id == spot.SpotModel.Spot.UserId)
+            spotOffers = spot.SpotModel.Offers;
+        else
+            spotOffers = spot.SpotModel.Offers?.Where(m=>m.UserId == userDataProvider!.Id).ToList();
+
+        if(spotOffers is not null && spotOffers.Count > 0)
+        {
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var parameters = new DialogParameters<Dialog> { { x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)] } };
+            return DialogService.ShowAsync<Dialog>($"Offer's history for SpotID: {spotId}", parameters, options);    
+        }
+        return Task.CompletedTask;
+    }
     async Task UpdateUser()
     {
         _navi.NavigateTo($"/spots/{currentUserId}", true);

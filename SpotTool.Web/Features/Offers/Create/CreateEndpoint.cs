@@ -129,7 +129,8 @@ public class CreateEndpoint(IDocumentSession _session,
             CurrencyCode = req.CurrencyCode ?? Currency.Code.EUR,
             Remarks = req.Remark?.Trim().ReplaceLineEndings(" "),
             Status = offerStatus,
-            ValueStatus = SetOfferValueStatus(req.Value, minOfferValue).Item1
+            ValueStatus = SetOfferValueStatus(req.Value, minOfferValue),
+            DeltaToMinOffer = CalculateDifferent(req.Value, minOfferValue, true)
         };
 
         if(spot.BiddersId is not null)
@@ -154,7 +155,12 @@ public class CreateEndpoint(IDocumentSession _session,
         
         await _session.SaveChangesAsync(ct);
         
-        spotOffers.Add(offer);
+        spotOffers = await _session.Query<DbModels.Offer>()
+            .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
+            .OrderBy(m=>m.Value)
+            .ToAsyncEnumerable(ct)
+            .ToListAsync(ct);
+            
         var spotModel = new SpotModel(
             spot, 
             spotOffers,
@@ -205,12 +211,12 @@ public class CreateEndpoint(IDocumentSession _session,
     //
     private static decimal CalculateDifferent(decimal addedValue, decimal existedMinOfferValue, bool calculateInPercentage = true)
     {
-        return calculateInPercentage ? 100 - (addedValue * 100 / existedMinOfferValue) : addedValue - existedMinOfferValue;
+        return calculateInPercentage ? 100 - (addedValue * 100 / existedMinOfferValue) : existedMinOfferValue - addedValue;
     }
-    private static (Status.OfferValue, decimal) SetOfferValueStatus(decimal value, decimal minOfferValue)
+    private static Status.OfferValue SetOfferValueStatus(decimal value, decimal minOfferValue)
     {
         decimal different = CalculateDifferent(value, minOfferValue);
-        return (CalculateOfferStatus(new CalculationModel(different)), different);
+        return CalculateOfferStatus(new CalculationModel(different));
     }
 
     private static Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> FindOffersToUpdate(decimal minOffer, List<DbModels.Offer> restOfOffers)
@@ -236,9 +242,10 @@ public class CreateEndpoint(IDocumentSession _session,
     {
         foreach (var item in offersToUpdate.Keys)
         {
-            Console.WriteLine($"Aktualizjuje ID: {item} with status: {offersToUpdate[item].newStatus}");
+            Console.WriteLine($"Aktualizjuje ID: {item} with status: {offersToUpdate[item].newStatus} and Delta: {offersToUpdate[item].difference}");
             _session.Patch<DbModels.Offer>(item)
-                .Set(m=>m.ValueStatus, offersToUpdate[item].newStatus);
+                .Set(m=>m.ValueStatus, offersToUpdate[item].newStatus)
+                .Set(m=>m.DeltaToMinOffer, offersToUpdate[item].difference);
         }
     }
     private record CalculationModel(decimal Difference, bool CalculateInPercentage = true);

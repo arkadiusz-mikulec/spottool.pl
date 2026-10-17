@@ -99,11 +99,9 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                 if(carrierMinOffer?.CreatedForUser.Id == UserId)
                 {
                     textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
-                    statusInfo = $"{carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
+                    statusInfo = $"{(CurrentSpotStatus != Status.Spot.Bidding ? statusToPresent : string.Empty)} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
                 }
-                else
-                    statusInfo = $"{statusToPresent}";    
-
+                 
                 color = DefineColor(statusToPresent, carrierMinOffer);
 
                 if(CurrentSpotStatus == Status.Spot.Negotiation)
@@ -131,8 +129,15 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
             {
                 case Status.Spot.Accepted:
                 case Status.Spot.Ok:
+                    color = MudBlazor.Color.Success;  
+                break;
                 case Status.Spot.Ended:
-                    color = MudBlazor.Color.Success;        
+                    {
+                        if(offer is not null && offer.DeltaToMinOffer <= 0)
+                            color = MudBlazor.Color.Success;
+                        else
+                            color = MudBlazor.Color.Error;
+                    }    
                 break;
                 case Status.Spot.Bidding:
                 case Status.Spot.Negotiation:
