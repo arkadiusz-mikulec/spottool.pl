@@ -1,3 +1,4 @@
+using ImTools;
 using Marten.Linq.Parsing;
 using SpotTool.Web.Contracts.UI.Offer;
 using SpotTool.Web.Domain;
@@ -70,77 +71,105 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
 { 
     public Guid SpotId {get;} = SpotId;
     public Status.Spot CurrentSpotStatus { get; } = SpotStatus;
+    //public Guid UserId { get; } = UserId;
 
     public (MudBlazor.Color color, string text, string style) GetStatusProperties()
     {
         //DbModels.Offer? minOffer = null; 
-        string textStyle = string.Empty;
-        var statusToPresent = Status.GetStatusName(CurrentSpotStatus, UserRole); 
+        string textStyle = string.Empty; 
+
+        var statusToPresent = Status.GetStatusName(CurrentSpotStatus, UserRole);
         string statusInfo = statusToPresent.ToString().ToUpper();
         MudBlazor.Color color = DefineColor(statusToPresent);
 
-        if(Offers is not null && Offers.Count > 0)
-        {    
-            if(UserRole == Role.User.Issuer)
+        if(UserRole == Role.User.Issuer)
+        {
+            switch(CurrentSpotStatus)
             {
-                var minOffer = Offers.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
-                textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";    
-                statusInfo = $"{statusToPresent} {minOffer?.Value} [{minOffer?.CurrencyCode}]";
-
-                if(CurrentSpotStatus == Status.Spot.Negotiation)
+                case Status.Spot.Accepted:
                 {
-                    var negOffers = Offers.Where(m=>m.Status == Status.Offer.ToNegotiation);
-                    statusInfo = $"{negOffers.Count()} {statusToPresent}";
+                    var offerAccepted = Offers?.FirstOrDefault(m=>m.IsWinnerOffer);
+                    statusInfo += $" {offerAccepted?.Value} [{offerAccepted?.CurrencyCode}] - {offerAccepted?.CreatedByUser.PersonDetail.Email}";    
                 }
-                if(CurrentSpotStatus == Status.Spot.Accepted)
+                break;
+                case Status.Spot.Bidding:
+                case Status.Spot.Ended:
                 {
-                    var offerAccepted = Offers.FirstOrDefault(m=>m.IsWinnerOffer);
-                    statusInfo = $"{offerAccepted?.Value} [{offerAccepted?.CurrencyCode}] - {offerAccepted?.CreatedByUser.PersonDetail.Email} {statusToPresent}";
+                    var minOffer = Offers?.Where(m=>m.CreatedByUser.Id != UserId).MinBy(m=>m.Value);
+                    textStyle = minOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";    
+                    statusInfo += $" {minOffer?.Value} [{minOffer?.CurrencyCode}]";        
                 }
-                if(CurrentSpotStatus == Status.Spot.Rejected)
+                break;
+                case Status.Spot.Negotiation:
                 {
-                    statusInfo = $"{statusToPresent}";
+                    var negOffers = Offers?.Where(m=>m.Status == Status.Offer.ToNegotiation).ToList();
+                    statusInfo += $" X {negOffers?.Count}";    
                 }
+                break;
             }
-            else
+        }
+        else
+        {
+            switch(CurrentSpotStatus)
             {
-                var carrierMinOffer = Offers.Where(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId).MinBy(m=>m.Value);
-                if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                case Status.Spot.Accepted:
                 {
-                    textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
-                    statusInfo = $"{(CurrentSpotStatus != Status.Spot.Bidding ? statusToPresent : string.Empty)} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
+                    var offerAccepted = Offers?.FirstOrDefault(m=>m.IsWinnerOffer && m.CreatedForUser.Id == UserId);
+                    if(offerAccepted is not null)
+                    {    
+                        statusInfo += $" {offerAccepted.Value} [{offerAccepted.CurrencyCode}]";
+                        color = DefineColor(statusToPresent);
+                    }
+                    else
+                    {
+                        statusInfo = $"{Status.Spot.Rejected}".ToUpper();
+                        color = DefineColor(Status.Spot.Rejected);
+                    }    
                 }
-                 
-                color = DefineColor(statusToPresent, carrierMinOffer);
-
-                if(CurrentSpotStatus == Status.Spot.Negotiation)
+                break;
+                case Status.Spot.Bidding:
+                case Status.Spot.Ended:
                 {
-                    var negOffer = Offers.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.Status == Status.Offer.ToNegotiation);
+                    string statusText = CurrentSpotStatus == Status.Spot.Ended ? $"{CurrentSpotStatus}".ToUpper() : "";
+                    var carrierMinOffer = Offers?.Where(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId).MinBy(m=>m.Value);
+                    if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                    {
+                        textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+                        statusInfo = $"{statusText} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
+                        color = DefineColor(CurrentSpotStatus, carrierMinOffer);
+                    }
+                    else
+                    {
+                        statusInfo = $"{CurrentSpotStatus}".ToUpper();
+                        color = DefineColor(CurrentSpotStatus);    
+                    }
+                }
+                break;
+                case Status.Spot.Negotiation:
+                {
+                    var negOffer = Offers?.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.Status == Status.Offer.ToNegotiation);
                     if(negOffer is not null)
                     {
                         statusInfo = $"{statusToPresent} for {negOffer.Value} [{negOffer.CurrencyCode}]";    
                         color = DefineColor(statusToPresent, negOffer);
                     }
-                }
-                if(CurrentSpotStatus == Status.Spot.Accepted)
-                {
-                    var offerAccepted = Offers.FirstOrDefault(m=>m.IsWinnerOffer && m.CreatedForUser.Id == UserId);
-                    if(offerAccepted is not null)
-                    {    
-                        statusInfo = $"{offerAccepted.Value} [{offerAccepted.CurrencyCode}] {statusToPresent}";
-                        color = DefineColor(statusToPresent, offerAccepted);
-                    }
                     else
                     {
-                        statusInfo = $"{Status.Spot.Rejected}";
-                        color = DefineColor(Status.Spot.Rejected);
-                    }
+                        var carrierMinOffer = Offers?.Where(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId).MinBy(m=>m.Value);
+                        if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                        {
+                            textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
+                            statusInfo = $"{Status.Spot.Ended} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]".ToUpper();
+                            color = DefineColor(Status.Spot.Ended, carrierMinOffer);
+                        }
+                        else
+                        {
+                            color = DefineColor(Status.Spot.Ended);    
+                            statusInfo = $"NIE POWINNO BYC - {Status.Spot.Ended}";
+                        }
+                    }    
                 }
-                if(CurrentSpotStatus == Status.Spot.Rejected)
-                {
-                    statusInfo = $"{statusToPresent}";
-                    color = DefineColor(statusToPresent);
-                }
+                break;
             }
         }
 
