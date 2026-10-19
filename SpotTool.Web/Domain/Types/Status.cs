@@ -24,12 +24,13 @@ public static class Status
     {
         if(userRole == Role.User.Issuer)
             return spotStatus;
-        
-        switch(spotStatus)
+
+
+        return spotStatus switch
         {
-            case Spot.Ok: return Spot.Bidding;
-            default: return spotStatus;
-        }
+            Spot.Ok => Spot.Bidding,
+            _ => spotStatus,
+        };
     }
 
 

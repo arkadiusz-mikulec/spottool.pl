@@ -1,15 +1,12 @@
 using FastEndpoints;
 using Marten;
 using SpotTool.Web.Domain;
-using SpotTool.Web.Features.Shared.Spots;
-
-
 
 namespace SpotTool.Web.Features.Spots.GetById;
 
 // --- 2. NOWY ENDPOINT GET (POTRZEBNY JAKO CEL DLA LOCATION) ---
 // Służy maszynom/TMS-om do sprawdzenia, czy Spot na pewno istnieje w bazie
-public class GetByIdEndpoint(SpotService spotService) : EndpointWithoutRequest<DbModels.Spot>
+public class GetByIdEndpoint(IDocumentSession _session) : EndpointWithoutRequest<DbModels.Spot>
 {
     public override void Configure()
     {
@@ -23,7 +20,7 @@ public class GetByIdEndpoint(SpotService spotService) : EndpointWithoutRequest<D
         // Wyciągamy ID bezpośrednio z adresu URL
         var id = Route<Guid>("Id");
 
-        var spot = await spotService.GetSpotByIdAsync(id, ct);
+        var spot = await _session.LoadAsync<DbModels.Spot>(id, ct);
         
         if (spot is null)
         {

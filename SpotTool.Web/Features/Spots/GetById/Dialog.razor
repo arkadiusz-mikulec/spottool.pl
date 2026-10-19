@@ -1,13 +1,31 @@
+@using FastEndpoints
 @using MudBlazor
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Spots.Accept
+@using SpotTool.Web.Features.Spots.Reject
+
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+    .selected > td {
+        color: white !important;
+    }
+
+    .selected > td .mud-input {
+        color: white !important;
+    }
+</style>
 
 <MudDialog>
     <TitleContent>
         @MudDialog?.Title
     </TitleContent>
     <DialogContent>
-        <MudTable Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+        <MudTable T="@DbModels.Offer" Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info"
+            @bind-SelectedItem="_selectedOffer" RowClassFunc="@SelectedRowClassFunc">
                 <HeaderContent>
                     <MudTh>Id</MudTh>
                     <MudTh>Bidder</MudTh>
@@ -34,8 +52,9 @@
             </MudTable>
     </DialogContent>
     <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="AcceptSpotAsync">Accept offer</MudButton>
+        <MudButton Color="Color.Error" OnClick="RejectSpotAsync">Reject all offers</MudButton>
         <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -45,14 +64,67 @@
 
     [Parameter]
     public List<DbModels.Offer> Offers { get; set; } = new();
-    private void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+    
+    DbModels.Offer? _selectedOffer { get; set; }
+    int _selectedRowNumber = -1;
 
+
+    protected override void OnInitialized()
+    {
+        _selectedOffer = Offers.FirstOrDefault(m=>m.IsWinnerOffer == true);
+        Console.WriteLine($"Selected is: {_selectedOffer?.Id}");
+    }
+    private async Task AcceptSpotAsync()
+    {
+        if(_selectedOffer is not null)
+        {
+            var command = new AcceptSpotCommand(_selectedOffer.SpotId, _selectedOffer.Id);
+            var result = await command.ExecuteAsync();
+
+            if(result.IsError)
+                Console.WriteLine($"Error accept spot: {result.ErrorMesage}");
+            else
+                MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task RejectSpotAsync()
+    {
+        if(_selectedOffer is not null)
+        {
+            var command = new RejectSpotCommand(_selectedOffer.SpotId);
+            var result = await command.ExecuteAsync();
+
+            if(result.IsError)
+                Console.WriteLine($"Error reject spot: {result.ErrorMsg}");
+            else
+                MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
     private void Cancel() => MudDialog?.Cancel();
-
+    
     MudBlazor.Color GetOfferColor(Status.OfferValue offerValue) => offerValue switch
     {
         Status.OfferValue.Green => MudBlazor.Color.Success,
         Status.OfferValue.Yellow => MudBlazor.Color.Warning,
         _ => MudBlazor.Color.Error
     };
+
+    string SelectedRowClassFunc(DbModels.Offer element, int rowNumber)
+    {
+        if (_selectedRowNumber == rowNumber)
+        {
+            _selectedRowNumber = -1;
+            return string.Empty;
+        }
+
+        if (_selectedOffer is not null && _selectedOffer.Equals(element))
+        {
+            _selectedRowNumber = rowNumber;
+            Console.WriteLine($"Selected offerID: {element.Id}");
+            return "selected";
+        }
+
+        return string.Empty;
+    }
 }

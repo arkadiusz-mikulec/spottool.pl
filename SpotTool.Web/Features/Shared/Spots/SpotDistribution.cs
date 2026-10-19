@@ -211,6 +211,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
+            Console.WriteLine($"@@@ Offers count: {spotModel.Offers?.Count}. Current status: {spotModel.Spot.CurrentStatus}");
             var signal = new SpotSignal(
                 SignalType.SpotStatusUpdate, 
                 null, 

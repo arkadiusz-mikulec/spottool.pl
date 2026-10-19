@@ -78,11 +78,24 @@ Content-Type: application/json
 }
 
 ### Reject offer from amikulec
-@offerId = 01a131d7-3378-7591-b73f-03c1da6ab666
-PATCH  {{host}}/api/v1/integrations/offers/{{offerId}}/reject
+@offerIdToReject = 01a131d7-3378-7591-b73f-03c1da6ab666
+PATCH  {{host}}/api/v1/integrations/offers/{{offerIdToReject}}/reject
 Content-Type: application/json
 
 {
     "Reason": "Bo tak"
 }
 
+
+### Reject spot
+@spotToRejectOrAccept = 01a14aa8-c60b-7c49-918c-b2df3e89c3f4
+PATCH {{host}}/api/v1/integrations/spots/{{spotToRejectOrAccept}}/reject
+
+### Accept spot
+@offerId = 01a14aa1-57b1-7731-9743-95086195f54e
+PATCH  {{host}}/api/v1/integrations/spots/{{spotToRejectOrAccept}}/accept
+Content-Type: application/json
+
+{
+    "OfferId": "{{offerId}}"
+}

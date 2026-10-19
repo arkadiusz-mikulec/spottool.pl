@@ -9,25 +9,26 @@ using SpotTool.Web.Features.Shared.Channels;
 
 namespace SpotTool.Web.Features.Shared.Spots;
 
+//docelowo to bedzie in memory casch
 public class SpotService(IDocumentSession _session,
     SpotDistribution _spotDistribution,
     SpotChannelManager _spotChannelManager)
 {
-    public async Task<DbModels.Spot?> GetSpotByIdAsync(Guid id, CancellationToken ct)
-    {
-        //using var session = _store.QuerySession();
-        var spot = await _session.LoadAsync<DbModels.Spot>(id, ct);
+    // public async Task<DbModels.Spot?> GetSpotByIdAsync(Guid id, CancellationToken ct)
+    // {
+    //     //using var session = _store.QuerySession();
+    //     var spot = await _session.LoadAsync<DbModels.Spot>(id, ct);
 
-        if (spot is null)
-            return null;
-        return spot;
-    }
+    //     if (spot is null)
+    //         return null;
+    //     return spot;
+    // }
 
-    public async Task<List<DbModels.Spot>> GetSpotsAsync(CancellationToken ct)
-    {
-        //using var session = _store.QuerySession();
-        return await _session.Query<DbModels.Spot>().ToAsyncEnumerable(ct).ToListAsync(ct);
-    }
+    // public async Task<List<DbModels.Spot>> GetSpotsAsync(CancellationToken ct)
+    // {
+    //     //using var session = _store.QuerySession();
+    //     return await _session.Query<DbModels.Spot>().ToAsyncEnumerable(ct).ToListAsync(ct);
+    // }
 
     //To powinno byc brane z Casch po zatwierdzeniu spota grupy nie moga ulec zmianie!
     public async Task<List<Guid>> GetSpotGroups(Guid id, CancellationToken ct)

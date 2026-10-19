@@ -92,6 +92,15 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     var negOffers = Offers.Where(m=>m.Status == Status.Offer.ToNegotiation);
                     statusInfo = $"{negOffers.Count()} {statusToPresent}";
                 }
+                if(CurrentSpotStatus == Status.Spot.Accepted)
+                {
+                    var offerAccepted = Offers.FirstOrDefault(m=>m.IsWinnerOffer);
+                    statusInfo = $"{offerAccepted?.Value} [{offerAccepted?.CurrencyCode}] - {offerAccepted?.CreatedByUser.PersonDetail.Email} {statusToPresent}";
+                }
+                if(CurrentSpotStatus == Status.Spot.Rejected)
+                {
+                    statusInfo = $"{statusToPresent}";
+                }
             }
             else
             {
@@ -112,6 +121,25 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                         statusInfo = $"{statusToPresent} for {negOffer.Value} [{negOffer.CurrencyCode}]";    
                         color = DefineColor(statusToPresent, negOffer);
                     }
+                }
+                if(CurrentSpotStatus == Status.Spot.Accepted)
+                {
+                    var offerAccepted = Offers.FirstOrDefault(m=>m.IsWinnerOffer && m.CreatedForUser.Id == UserId);
+                    if(offerAccepted is not null)
+                    {    
+                        statusInfo = $"{offerAccepted.Value} [{offerAccepted.CurrencyCode}] {statusToPresent}";
+                        color = DefineColor(statusToPresent, offerAccepted);
+                    }
+                    else
+                    {
+                        statusInfo = $"{Status.Spot.Rejected}";
+                        color = DefineColor(Status.Spot.Rejected);
+                    }
+                }
+                if(CurrentSpotStatus == Status.Spot.Rejected)
+                {
+                    statusInfo = $"{statusToPresent}";
+                    color = DefineColor(statusToPresent);
                 }
             }
         }
@@ -144,7 +172,9 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     color = MudBlazor.Color.Info;
                 break;
                 case Status.Spot.Canceled:
+                case Status.Spot.Deleted:
                 case Status.Spot.EndedNoOffer:
+                case Status.Spot.Rejected:
                     color = MudBlazor.Color.Error;
                 break;
                 default: 
@@ -186,6 +216,8 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                 case Status.Spot.Canceled:
                 case Status.Spot.EndedNoOffer:
                 case Status.Spot.Ended:
+                case Status.Spot.Rejected:
+                case Status.Spot.Deleted:
                     color = MudBlazor.Color.Error;                  
                 break;
                 default: 
