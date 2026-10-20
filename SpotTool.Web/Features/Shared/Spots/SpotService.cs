@@ -48,7 +48,6 @@ public class SpotService(IDocumentSession _session,
             spots = [.. await _session.Query<DbModels.Spot>()
                 .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
                     m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
         }
@@ -58,7 +57,6 @@ public class SpotService(IDocumentSession _session,
                 .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
                     m.UserId == connectedUserId &&
                     m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
             // all spot from date range with current user offer 
@@ -67,7 +65,6 @@ public class SpotService(IDocumentSession _session,
                     m.CurrentStatus == Status.Spot.Bidding ||
                     m.BiddersId!.Contains(connectedUserId)) &&
                     m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
                 ]
             );
@@ -78,7 +75,6 @@ public class SpotService(IDocumentSession _session,
                 .Where(m=>m.CurrentStatus != Status.Spot.Deleted &&
                     m.UserId == connectedUserId &&
                     m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
         }
@@ -90,7 +86,6 @@ public class SpotService(IDocumentSession _session,
                     m.CurrentStatus == Status.Spot.Bidding ||
                     m.BiddersId!.Contains(connectedUserId)) &&
                     m.DeadLine >= start && m.DeadLine <= stop)
-                .ToAsyncEnumerable(ct)
                 .ToListAsync(ct)
             ];
         }        
@@ -104,7 +99,6 @@ public class SpotService(IDocumentSession _session,
             
             List<DbModels.Offer>? offers = [.. await _session.Query<DbModels.Offer>()
                     .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-                    .ToAsyncEnumerable(ct)
                     .ToListAsync(ct)
                 ];
 

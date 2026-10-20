@@ -15,6 +15,8 @@ public static class DbModels
         public decimal TargetedCost {get; set;} = 0;
         public ContactPersonDetail? ContactDetails { get; set; } //in case we want to create spot from system user but assing special contact person
         public DateTimeOffset DeadLine { get; set; } = DateTimeOffset.Now.AddMinutes(15);
+
+        //To DELETE!!! durog update
         public DateTimeOffset? NegotiationDeadLine { get; set; }
         public string? CancelReason { get; set; }
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
@@ -23,7 +25,7 @@ public static class DbModels
         public OfferSnapShot? WinnerOfferSnapShot { get; set; } //zastanowic sie nad tym 
         public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.Now;
         public required UserSnapShot CreatedByUser { get; set; }
-        public List<Guid>? BiddersId {get;set; } = null; // UserId which placed offer
+        public List<Guid>? BiddersId {get; set;} = null; // UserId which placed offer
     }
 
     public class SpotStatusHistory

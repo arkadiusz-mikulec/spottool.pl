@@ -82,11 +82,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
-            var finallOffers = spotModel.Offers;
-            // if(userRole != Role.User.Issuer && userRole != Role.User.Admin)
-            //     finallOffers  = [.. spotModel!.Offers!.Where(m=>m.CreatedForUser.Id == userSubscription.UserId)];
-
-            var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, finallOffers);
+            var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers);
             var signal = new SpotSignal(SignalType.OfferCreate, null, spotStatusUi, offer, null); 
 
             if(!userSubscription.Writer.TryWrite(signal))

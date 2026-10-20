@@ -1,5 +1,5 @@
 @host = http://localhost:5017
-@spotId = 01a14ab7-fd13-7855-a44a-0aebe336931a
+@spotId = 01a15438-3bca-72b7-a60d-b6dd5706e306
 
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
@@ -30,7 +30,7 @@ PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/update-deadlina
 Content-Type: application/json
 
 {
-    "SpotDeadline": "2026-10-17T18:46:12+02:00"
+    "SpotDeadline": "2026-10-19T10:50:12+02:00"
 }
 
 ### Add Offer by biuro
@@ -41,7 +41,7 @@ Content-Type: application/json
     "SpotId": "{{spotId}}",
     "CreateByUserId": "01a14858-e303-73fb-83d3-0ca37816ce81",
     "CreateForUserId": "01a14858-e303-73fb-83d3-0ca37816ce81",
-    "Value": 1950
+    "Value": 900
 }
 
 ### Add offer by amikulec
@@ -52,7 +52,7 @@ Content-Type: application/json
     "SpotId": "{{spotId}}",
     "CreateByUserId": "01a14858-e303-71a2-88c0-87307c2ebec2",
     "CreateForUserId": "01a14858-e303-71a2-88c0-87307c2ebec2",
-    "Value": 175
+    "Value": 85
 }
 
 ### Add negotiarion offer by arkadiusz.mikulec for amikulec
@@ -63,7 +63,8 @@ Content-Type: application/json
     "SpotId": "{{spotId}}",
     "CreateByUserId": "01a14858-e2fd-7c97-99e0-1150990a29d3",
     "CreateForUserId": "01a14858-e303-71a2-88c0-87307c2ebec2",
-    "Value": 17
+    "Value": 850,
+    "ValidTill": "2026-10-19T15:15:12+02:00"
 }
 
 ### Add negotiarion offer by arkadiusz.mikulec for biuro

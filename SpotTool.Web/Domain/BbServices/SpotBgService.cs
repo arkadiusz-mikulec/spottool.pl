@@ -100,12 +100,18 @@ public class SpotBgService : BackgroundService
         using var scope = _serviceProvider.CreateAsyncScope();
         var _session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
 
-        var resultNegotiation = await _session.Query<DbModels.Spot>()
-            .Where(m=>m.CurrentStatus == Status.Spot.Negotiation)
-            .OrderBy(m=>m.NegotiationDeadLine)
+        var negotiationSpotId = await _session.Query<DbModels.Spot>()
+            .Where(m=>m.CurrentStatus == Status.Spot.Negotiation).Select(m=>m.Id).ToListAsync(ct);
+
+        if(negotiationSpotId is null || negotiationSpotId.Count == 0)
+            return null;
+        
+        var nextDedLine = await _session.Query<DbModels.Offer>()
+            .Where(m=>m.Status == Status.Offer.ToNegotiation && negotiationSpotId.Contains(m.SpotId))
+            .OrderBy(m=>m.ValidTill)
             .FirstOrDefaultAsync(ct);
 
-        return resultNegotiation?.NegotiationDeadLine;
+        return nextDedLine?.ValidTill;
     }
 
     private async Task<List<Guid>> UpdateManySpotsStatusAsync(bool isSpotDeadline, CancellationToken ct)
@@ -116,7 +122,7 @@ public class SpotBgService : BackgroundService
 
         var currentTime = _datetimeProvoder.Now();
 
-        List<DbModels.Spot> spotsToUpdate = [];
+        List<Guid> spotsToUpdate = [];
         
         if(isSpotDeadline)
         {
@@ -124,46 +130,56 @@ public class SpotBgService : BackgroundService
                 .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
                     m.CurrentStatus == Status.Spot.Bidding &&
                     m.DeadLine <= currentTime)
+                .Select(m=>m.Id)
                 .ToListAsync(ct)
             ];
         }
         else
         {
-            spotsToUpdate = [.. await _session.Query<DbModels.Spot>()
-                .Where(m=>m.CurrentStatus == Status.Spot.Negotiation &&
-                    m.NegotiationDeadLine <= currentTime)
+            var t = await _session.Query<DbModels.Spot>()
+                .Where(m=>m.CurrentStatus == Status.Spot.Negotiation)
+                .Select(m=>m.Id)
+                .ToListAsync(ct);
+            
+
+            spotsToUpdate = [.. await _session.Query<DbModels.Offer>()
+                .Where(m=>m.Status == Status.Offer.ToNegotiation && t.Contains(m.SpotId) && m.ValidTill <= currentTime)
+                .Select(m=>m.SpotId)
                 .ToListAsync(ct)
             ];
+            
         }
         
-        foreach (var item in spotsToUpdate)
+        foreach (var spotId in spotsToUpdate)
         {
             Status.Spot spotStatus = Status.Spot.EndedNoOffer;
-            
-            var offers = await _session.Query<DbModels.Offer>()
-                .Where(m=>m.SpotId == item.Id && m.CreatedByUser.Id != item.UserId)
-                .OrderBy(m=>m.Value)
-                .ToAsyncEnumerable(ct)
-                .ToListAsync(ct);
 
-            if(offers.Count > 0)
+            var spot = await _session.LoadAsync<DbModels.Spot>(spotId, ct);
+            
+            List<DbModels.Offer> offers = [.. await _session.Query<DbModels.Offer>()
+                .Where(m=>m.SpotId == spotId && m.CreatedByUser.Id != spot!.UserId)
+                .OrderBy(m=>m.Value)
+                .ToListAsync(ct)
+            ];
+
+            if(offers is not null && offers.Count > 0)
                 spotStatus = Status.Spot.Ended; //item.TargetedCost >= offers[0].Value ? Status.Spot.EndedCostOK : Status.Spot.EndedCostTooHigh; 
             
-            item.CurrentStatus = spotStatus;
+            spot!.CurrentStatus = spotStatus;
 
-            _session.Store(item);
+            _session.Store(spot);
 
             //Moge stworzyc channel gdzie wysle cala liste!
             var spotModel = new SpotModel(
-                item, 
+                spot, 
                 offers, 
-                await spotService.GetSpotGroups(item.Id, ct),
-                await spotService.GetUsersExcluded(item.Id, ct)
+                await spotService.GetSpotGroups(spot.Id, ct),
+                await spotService.GetUsersExcluded(spot.Id, ct)
             );
             _ = _spotDistribution.SendSpotStatusToAuthorizedUsers(spotModel);
         }
         await _session.SaveChangesAsync(ct);
 
-        return [.. spotsToUpdate.Select(m=>m.Id)];
+        return [.. spotsToUpdate];
     }
 }

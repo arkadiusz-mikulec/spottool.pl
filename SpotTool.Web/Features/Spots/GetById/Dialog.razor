@@ -1,9 +1,12 @@
 @using FastEndpoints
 @using MudBlazor
 @using SpotTool.Web.Domain
+@using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
 @using SpotTool.Web.Features.Spots.Accept
 @using SpotTool.Web.Features.Spots.Reject
+
+@inject IDateTimeProvider _dateTimeProvider
 
 <style>
     .selected {
@@ -32,6 +35,7 @@
                     <MudTh>Value</MudTh>
                     <MudTh>Currency</MudTh>
                     <MudTh>Status</MudTh>
+                    <MudTh>Valid till</MudTh>
                     <MudTh>Bid's feedback</MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -41,7 +45,8 @@
                     </MudTd>
                     <MudTd DataLabel="Value">@context.Value</MudTd>    
                     <MudTd DataLabel="Currency">@context.CurrencyCode</MudTd>    
-                    <MudTd DataLabel="Status">@context.Status</MudTd>                   
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Valid-till">@GetValidTillInUserDateTime(context.ValidTill)</MudTd>                   
                     <MudTd DataLabel="Feedback">
                         @{
                             var color = GetOfferColor(@context.ValueStatus);
@@ -64,7 +69,10 @@
 
     [Parameter]
     public List<DbModels.Offer> Offers { get; set; } = new();
-    
+
+    [Parameter]
+    public TimeSpan? UserOffset {get; set;}
+
     DbModels.Offer? _selectedOffer { get; set; }
     int _selectedRowNumber = -1;
 
@@ -102,7 +110,7 @@
         }
     }
     private void Cancel() => MudDialog?.Cancel();
-    
+
     MudBlazor.Color GetOfferColor(Status.OfferValue offerValue) => offerValue switch
     {
         Status.OfferValue.Green => MudBlazor.Color.Success,
@@ -126,5 +134,10 @@
         }
 
         return string.Empty;
+    }
+
+    string GetValidTillInUserDateTime(DateTimeOffset validTill)
+    {
+        return _dateTimeProvider.ToUserLocalDateTime(validTill, UserOffset ?? TimeSpan.Zero);
     }
 }

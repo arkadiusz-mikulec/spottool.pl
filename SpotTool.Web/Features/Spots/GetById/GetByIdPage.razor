@@ -9,6 +9,7 @@
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Offers.Create
 @using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
 @using SpotTool.Web.Features.Spots.Create
@@ -52,7 +53,13 @@
                     <MudTh>Operations</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Id">@context.SpotModel.Spot.Id</MudTd>
+                    <MudTd DataLabel="Id">
+                        @{
+                            string link = $"/spots/{context.SpotModel.Spot.Id}";
+                            string pseudoNumber = $"Spot-{Random.Shared.Next(1000, 9999)}";
+                        }
+                        <MudLink Href="@link">@pseudoNumber</MudLink>
+                    </MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.SpotModel.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
                     <MudTd DataLabel="Current Status">
                         @{
@@ -66,6 +73,12 @@
                     <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
                     <MudTd DataLabel="Contact phone" HideSmall="true">@context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
                     <MudTd DataLabel="Operations">
+                        @if(userDataProvider?.Roles.Contains(Role.User.Bidder) == true)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="((e) => AddOfferAsync(context.SpotModel.Spot.Id))">
+                                Add offer
+                            </MudButton>
+                        }
                         @string.Format("Btm: {0}", string.Join(" + ", context.SpotButtons.Select(m=>m.ButtonText)))
                     </MudTd>
                 </RowTemplate>
@@ -130,10 +143,32 @@
         if(spotOffers is not null && spotOffers.Count > 0)
         {
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var parameters = new DialogParameters<Dialog> { { x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)] } };
+            var parameters = new DialogParameters<Dialog>();
+
+            parameters.Add(x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)]);
+            parameters.Add(x => x.UserOffset, userDataProvider?.userOffset);
+
+            //alternatywa
+            @* var parameters = new DialogParameters<Dialog>
+            {
+                { nameof(Dialog.Offers), [.. spotOffers.OrderBy(m => m.Value)] },
+                { nameof(Dialog.UserOffset), userDataProvider?.userOffset }
+            }; *@
+
             return DialogService.ShowAsync<Dialog>($"Offer's history for SpotID: {spotId}", parameters, options);    
         }
         return Task.CompletedTask;
+    }
+    async Task AddOfferAsync(Guid spotId)
+    {
+        var createOfferresult = await new CreateOfferCommand(
+            spotId, userDataProvider!.Id, userDataProvider.Id, Random.Shared.Next(200, 500) * 1.5M, Currency.Code.EUR,
+            "Loading tomorrow", null
+        ).ExecuteAsync();
+
+        if(createOfferresult.IsError)
+            Console.WriteLine($"Error: addOfer - {createOfferresult.ErrorMsg}");
+        
     }
     async Task CreateSpotAsync()
     {

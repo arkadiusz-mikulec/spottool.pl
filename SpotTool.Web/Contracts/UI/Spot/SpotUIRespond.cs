@@ -39,24 +39,24 @@ public static class Buttons
 {
     public static Button ConfirmButton()
     { 
-        return new Button {ButtonText = "Confirm", ButtonIcon = "edit"}; 
+        return new Button {ButtonText = "Confirm", ButtonIcon = "edit", Color = MudBlazor.Color.Dark }; 
     }
     public static Button EditButton()
     { 
-        return new Button {ButtonText = "Edit", ButtonIcon = "edit"}; 
+        return new Button {ButtonText = "Edit", ButtonIcon = "edit", Color = MudBlazor.Color.Primary}; 
     }
     public static Button DetailsButton()
     { 
-        return new Button {ButtonText = "Details", ButtonIcon = "d"}; 
+        return new Button {ButtonText = "Details", ButtonIcon = "d", Color = MudBlazor.Color.Info }; 
     }
     public static Button DeleteButton()
     { 
-        return new Button {ButtonText = "Delete", ButtonIcon = "d"}; 
+        return new Button {ButtonText = "Delete", ButtonIcon = "d", Color = MudBlazor.Color.Error }; 
     }
     
     public static Button AddOfferButton()
     { 
-        return new Button {ButtonText = "Add offer", ButtonIcon = "edit"}; 
+        return new Button {ButtonText = "Add offer", ButtonIcon = "edit", Color = MudBlazor.Color.Success }; 
     }   
 }
 
@@ -65,6 +65,7 @@ public class Button
     public string ButtonText { get; set; } = string.Empty;
     public string ButtonIcon { get; set; } = string.Empty;
     public bool IsVisible { get; set; } = true;
+    public MudBlazor.Color Color { get; set; }
 }
 
 public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatus, Role.User UserRole, List<DbModels.Offer>? Offers)
