@@ -232,7 +232,7 @@
 
         Console.WriteLine($"Initialize spots for range from: {start} to: {end}");
 
-        await _spotService.InitSpotsAsync(
+        Spots = await _spotService.InitSpotsAsync(
             userDataProvider.Id, 
             userDataProvider.Roles, 
             start, 

@@ -39,7 +39,7 @@ public class SpotService(IDocumentSession _session,
     {
         return [];
     }
-    public async Task InitSpotsAsync(Guid connectedUserId, List<Role.User> userRoles, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
+    public async Task<List<SpotUIRespond>> InitSpotsAsync(Guid connectedUserId, List<Role.User> userRoles, DateTimeOffset start, DateTimeOffset stop, CancellationToken ct)
     {
         List<DbModels.Spot> spots = [];
 
@@ -89,39 +89,37 @@ public class SpotService(IDocumentSession _session,
                 .ToListAsync(ct)
             ];
         }        
-        spots = [.. spots.OrderBy(m=>m.DeadLine)];
+        
+        List<SpotUIRespond> spotUIs = [];
         foreach (var spot in spots)
         {
-            var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
-            var usersExcluded = await GetUsersExcluded(spot.Id, ct);
+            
+            // var groupsAssignedToSpot = await GetSpotGroups(spot.Id, ct);
+            // var usersExcluded = await GetUsersExcluded(spot.Id, ct);
 
-            var userSubscibed = _spotChannelManager.GetUserSubscriptionData(connectedUserId);
+            //var userSubscibed = _spotChannelManager.GetUserSubscriptionData(connectedUserId);
             
             List<DbModels.Offer>? offers = [.. await _session.Query<DbModels.Offer>()
                     .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
                     .ToListAsync(ct)
                 ];
 
-            // if(connectedUserId == spot.UserId)
-            // {
-            //     offers = [.. await _session.Query<DbModels.Offer>()
-            //         .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            //         .ToAsyncEnumerable(ct)
-            //         .ToListAsync(ct)
-            //     ];
-            // }
-            // else
-            // {
-            //     offers = [.. await _session.Query<DbModels.Offer>()
-            //         .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted && m.UserId == connectedUserId)
-            //         .ToAsyncEnumerable(ct)
-            //         .ToListAsync(ct)
-            //     ];   
-            // }
-            
-            var spotModel = new SpotModel(spot, offers, groupsAssignedToSpot, usersExcluded);
-            
-            _spotDistribution.SendSpotCreatedToUser(spotModel, userSubscibed);
+            Role.User userRole = IsSpotCreator(connectedUserId, spot.UserId) ? Role.User.Issuer : Role.User.Bidder;
+            var spotModel = new SpotModel(spot, offers, null, null);
+            spotUIs.Add(new SpotUIRespond(spotModel, connectedUserId, userRole));
+
+            //_spotDistribution.SendSpotCreatedToUser(spotModel, userSubscibed);
         }
+        return [.. spotUIs.OrderBy(m=>m.SpotModel.Spot.DeadLine)];
     }
+    private static bool IsSpotCreator(Guid userId, Guid spotUserId)
+    {
+        //tutaj bedzie cala logika dotyczaca BU!
+        return userId == spotUserId;
+    }
+    // private static bool CarrierHasAccess(Guid userId, List<Guid> groupsAssignedToSpot, List<Guid> carrierGroups, List<Guid> usersExcluded)
+    // {
+    //     bool isGlobal = groupsAssignedToSpot.Count == 0; 
+    //     return isGlobal || carrierGroups.Intersect(groupsAssignedToSpot).Any() || !usersExcluded.Contains(userId);    
+    // }
 }
