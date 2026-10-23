@@ -4,7 +4,7 @@ namespace SpotTool.Web.Features.Spots.Cancel;
 
 public record Request(string? Reason = null);
 public record Respond(bool Success, string? Reason);
-public class CreateEndpoint : Endpoint<Request, Respond> //EndpointWithoutRequest<Response>
+public class CancelSpotEndpoint : Endpoint<Request, Respond> //EndpointWithoutRequest<Response>
 {
     public override void Configure()
     {
