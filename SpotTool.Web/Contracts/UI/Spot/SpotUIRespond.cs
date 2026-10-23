@@ -1,6 +1,3 @@
-using ImTools;
-using Marten.Linq.Parsing;
-using SpotTool.Web.Contracts.UI.Offer;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Spots;
@@ -16,11 +13,11 @@ public class SpotUIRespond
             
         if(userRoleForThisSpot == Role.User.Bidder)
         {
-            SpotButtons.AddRange([Buttons.AddOfferButton(), Buttons.DetailsButton()]);
+            SpotButtons.Add(Buttons.AddOfferButton());
         }
         else
         {
-            List<Button> defaultButtons = [Buttons.EditButton(), Buttons.DetailsButton(), Buttons.DeleteButton()];
+            List<Button> defaultButtons = [Buttons.EditButton(), Buttons.CopyButton(), Buttons.DeleteButton()];
             if(spotModel.Spot.CurrentStatus == Status.Spot.NotConfirmed)
             {
                 SpotButtons.Add(Buttons.ConfirmButton());
@@ -30,48 +27,73 @@ public class SpotUIRespond
                 SpotButtons.AddRange(defaultButtons);
         }
     }
+    // SpotmMdel to record
     public SpotModel SpotModel {get;set;} 
+    // SpotStatusUIRespond to klasa
     public SpotStatusUIRespond StatusUIRespond { get; set; }
+    //Button to statyczna klasa
     public List<Button> SpotButtons {get; set;} = [];
 }
 
+public enum ButtonAction
+{
+    CONFIRM_SPOT,
+    EDIT_SPOT,
+    DELETE_SPOT,
+    COPY_SPOT,
+    ADD_OFFER,
+    DELETE_OFFER,
+    DETAILS
+}
 public static class Buttons
 {
+    public static Button CopyButton()
+    { 
+        return new Button {ActionName = ButtonAction.COPY_SPOT, ButtonText = "CoPY", ButtonIcon = MudBlazor.Icons.Material.Filled.CopyAll, Color = MudBlazor.Color.Secondary }; 
+    }
     public static Button ConfirmButton()
     { 
-        return new Button {ButtonText = "Confirm", ButtonIcon = "edit", Color = MudBlazor.Color.Dark }; 
+        return new Button {ActionName = ButtonAction.CONFIRM_SPOT, ButtonText = "Confirm", ButtonIcon = MudBlazor.Icons.Material.Filled.Approval, Color = MudBlazor.Color.Dark }; 
     }
     public static Button EditButton()
     { 
-        return new Button {ButtonText = "Edit", ButtonIcon = "edit", Color = MudBlazor.Color.Primary}; 
+        return new Button {ActionName = ButtonAction.EDIT_SPOT, ButtonText = "Edit", ButtonIcon = MudBlazor.Icons.Material.Filled.Edit, Color = MudBlazor.Color.Primary}; 
     }
     public static Button DetailsButton()
     { 
-        return new Button {ButtonText = "Details", ButtonIcon = "d", Color = MudBlazor.Color.Info }; 
+        return new Button {ActionName = ButtonAction.DETAILS, ButtonText = "Details", ButtonIcon = MudBlazor.Icons.Material.Filled.Details, Color = MudBlazor.Color.Info }; 
     }
     public static Button DeleteButton()
     { 
-        return new Button {ButtonText = "Delete", ButtonIcon = "d", Color = MudBlazor.Color.Error }; 
+        return new Button { ActionName = ButtonAction.DELETE_SPOT, ButtonText = "Delete", ButtonIcon = MudBlazor.Icons.Material.Filled.Delete, Color = MudBlazor.Color.Error }; 
+    }
+
+    public static Button DeleteOfferButton()
+    { 
+        return new Button {ActionName = ButtonAction.DELETE_OFFER, ButtonText = "Delete", ButtonIcon = MudBlazor.Icons.Material.Filled.Delete, Color = MudBlazor.Color.Error }; 
     }
     
     public static Button AddOfferButton()
     { 
-        return new Button {ButtonText = "Add offer", ButtonIcon = "edit", Color = MudBlazor.Color.Success }; 
-    }   
+        return new Button {ActionName = ButtonAction.ADD_OFFER, ButtonText="Add offer", ButtonIcon = MudBlazor.Icons.Material.Filled.Add, Color = MudBlazor.Color.Primary }; 
+    }
+ 
 }
-
 public class Button
 {
+    public ButtonAction ActionName {get; set;}
     public string ButtonText { get; set; } = string.Empty;
-    public string ButtonIcon { get; set; } = string.Empty;
+    public string? ButtonIcon { get; set; }
     public bool IsVisible { get; set; } = true;
     public MudBlazor.Color Color { get; set; }
+    //public EventCallback Callback {get; set;}
 }
 
 public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatus, Role.User UserRole, List<DbModels.Offer>? Offers)
 { 
     public Guid SpotId {get;} = SpotId;
     public Status.Spot CurrentSpotStatus { get; } = SpotStatus;
+    //public List<DbModels.Offer>? Offers { get; } = Offers;
     //public Guid UserId { get; } = UserId;
 
     public (MudBlazor.Color color, string text, string style) GetStatusProperties()
@@ -181,7 +203,7 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
     {
         MudBlazor.Color color;
         
-        if(UserRole == Role.User.Issuer || UserRole == Role.User.Admin)
+        if(UserRole == Role.User.Issuer)
         {
             switch(statusToPresent)
             {
@@ -303,7 +325,7 @@ public record SpotDeadlineUpdateRespond(Guid SpotId, DateTimeOffset DeadLine);
 //     }
 // }
 
-public static class StatusUIChipsLook
-{
-    public static MudBlazor.Color Color {get; set;} = MudBlazor.Color.Dark;
-}
+// public static class StatusUIChipsLook
+// {
+//     public static MudBlazor.Color Color {get; set;} = MudBlazor.Color.Dark;
+// }

@@ -1,0 +1,26 @@
+@using SpotTool.Web.Contracts.UI.Spot
+@using MudBlazor
+
+<MudButton Variant="Variant.Filled" Color="@Button.Color" Size="Size.Small" OnClick="OnClick" StartIcon="@Button.ButtonIcon">
+    @Button.ButtonText
+</MudButton>
+
+
+
+
+@code {
+    [Parameter]
+    public EventCallback OnClickEvent { get; set; }
+    //public async Task OnClick(object? value) => await OnClickEvent.InvokeAsync(value);
+    public async Task OnClick() => await OnClickEvent.InvokeAsync();
+
+    [Parameter]
+    public Button Button {get; set;} = new();
+
+    [Parameter]
+    public object? CallbackValue {get; set;} = null;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
+}

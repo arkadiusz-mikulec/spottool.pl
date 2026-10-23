@@ -127,8 +127,8 @@ public class SpotBgService : BackgroundService
         if(isSpotDeadline)
         {
             spotsToUpdate = [.. await _session.Query<DbModels.Spot>()
-                .Where(m=>m.CurrentStatus == Status.Spot.Ok || 
-                    m.CurrentStatus == Status.Spot.Bidding &&
+                .Where(m=>(m.CurrentStatus == Status.Spot.Ok || 
+                    m.CurrentStatus == Status.Spot.Bidding) &&
                     m.DeadLine <= currentTime)
                 .Select(m=>m.Id)
                 .ToListAsync(ct)
@@ -136,14 +136,16 @@ public class SpotBgService : BackgroundService
         }
         else
         {
-            var t = await _session.Query<DbModels.Spot>()
+            var spotIdsDuringNegotiation = await _session.Query<DbModels.Spot>()
                 .Where(m=>m.CurrentStatus == Status.Spot.Negotiation)
                 .Select(m=>m.Id)
                 .ToListAsync(ct);
             
 
             spotsToUpdate = [.. await _session.Query<DbModels.Offer>()
-                .Where(m=>m.Status == Status.Offer.ToNegotiation && t.Contains(m.SpotId) && m.ValidTill <= currentTime)
+                .Where(m=>m.Status == Status.Offer.ToNegotiation && 
+                    spotIdsDuringNegotiation.Contains(m.SpotId) && 
+                    m.ValidTill <= currentTime)
                 .Select(m=>m.SpotId)
                 .ToListAsync(ct)
             ];
@@ -168,6 +170,8 @@ public class SpotBgService : BackgroundService
             spot!.CurrentStatus = spotStatus;
 
             _session.Store(spot);
+            //Sprawdzic czy to musi byc tak zapisywane ale raczej tak
+            await _session.SaveChangesAsync(ct);
 
             //Moge stworzyc channel gdzie wysle cala liste!
             var spotModel = new SpotModel(
@@ -178,8 +182,7 @@ public class SpotBgService : BackgroundService
             );
             _ = _spotDistribution.SendSpotStatusToAuthorizedUsers(spotModel);
         }
-        await _session.SaveChangesAsync(ct);
-
+        
         return [.. spotsToUpdate];
     }
 }

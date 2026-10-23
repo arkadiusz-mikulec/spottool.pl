@@ -1,5 +1,5 @@
 @host = http://localhost:5017
-@spotId = 01a15438-3bca-72b7-a60d-b6dd5706e306
+@spotId = 01a167ea-ff4a-7b69-b7e5-411867ef3893
 
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
@@ -30,7 +30,7 @@ PATCH {{host}}/api/v1/integrations/spots/{{spotId}}/update-deadlina
 Content-Type: application/json
 
 {
-    "SpotDeadline": "2026-10-19T10:50:12+02:00"
+    "SpotDeadline": "2026-10-23T11:54:12+02:00"
 }
 
 ### Add Offer by biuro

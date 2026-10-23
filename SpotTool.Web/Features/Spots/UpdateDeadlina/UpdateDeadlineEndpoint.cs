@@ -22,12 +22,7 @@ public class Validator : Validator<Request>
     }
 }
 
-public class UpdateDeadlinaEndpoint(
-    IDocumentSession _session, 
-    SpotDistribution _spotDistributor,
-    Channel<Guid> _updateChannel,
-    IDateTimeProvider _dateTimeProvider,
-    SpotService _spotService) : Endpoint<Request>
+public class UpdateDeadlinaEndpoint : Endpoint<Request>
 {
     //private readonly IDocumentStore _store = store; // Marten wstrzyknięty klasycznie przez DI
     
@@ -42,46 +37,22 @@ public class UpdateDeadlinaEndpoint(
         // Logika biznesowa zapisu do Martena/Postgresa
         
         Guid spotId = Route<Guid>("Id");
-        var spot = await _session.LoadAsync<DbModels.Spot>(spotId, ct);
-        if(spot is null)
-        {
-            await Send.NotFoundAsync(ct);
-            return; //Task.FromResult(new ProblemDetails();
-        }
         
-        if(!CanBeUpdated(spot))
+        var updateSpotDeadlineResult = await new UpdateDeadlineCommand(spotId, req.SpotDeadline).ExecuteAsync(ct);
+        if(updateSpotDeadlineResult.IsError)
         {
             await Send.ResultAsync(TypedResults.Problem(
-                detail: "Spot deadlinie cannot be updated becasue spot is in wrong status",
+                detail: updateSpotDeadlineResult.ErrorMsg,
                 statusCode: StatusCodes.Status400BadRequest,
-                title: "Spot deadline cannot be updated"
+                title: "Deadline cannot be updated"
             ));
             
             return;
         }
-        
-        spot.DeadLine = _dateTimeProvider.FormatDateTimeWithoutSecunds(req.SpotDeadline);
 
-        _session.Store(spot);
-                           
-        await _session.SaveChangesAsync(ct);
-
-        var spotModel = new SpotModel(spot, null,
-            await _spotService.GetSpotGroups(spot.Id, ct),
-            await _spotService.GetUsersExcluded(spot.Id, ct)
-        );
-        _ = _spotDistributor.SendSpotDeadlineUpdateToAuthorizedUsers(spotModel);
-        _updateChannel.Writer.TryWrite(spot.Id);
-        // // Błyskawiczna odpowiedź 201 Created
-        // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
         await Send.NoContentAsync(ct);
     }
 
-    private static bool CanBeUpdated(DbModels.Spot spot)
-    {
-        if(spot.CurrentStatus == Status.Spot.NotConfirmed || spot.CurrentStatus == Status.Spot.Ok || spot.CurrentStatus == Status.Spot.Bidding)
-            return true;
-        return false;
-    }
+    
     
 }

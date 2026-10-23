@@ -3,6 +3,7 @@
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Offers.Create
 @using SpotTool.Web.Features.Spots.Accept
 @using SpotTool.Web.Features.Spots.Reject
 
@@ -46,18 +47,19 @@
                     <MudTd DataLabel="Value">@context.Value</MudTd>    
                     <MudTd DataLabel="Currency">@context.CurrencyCode</MudTd>    
                     <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Valid-till">@GetValidTillInUserDateTime(context.ValidTill)</MudTd>                   
+                    <MudTd DataLabel="Valid-till">@GetValidTillInUserTime(context.ValidTill)</MudTd>                   
                     <MudTd DataLabel="Feedback">
                         @{
                             var color = GetOfferColor(@context.ValueStatus);
                         }
-                        <MudChip T="string" Color="@color">@context.ValueStatus.ToString()[0]</MudChip>
+                        <MudChip T="@string" Color="@color">@context.ValueStatus.ToString()[0]</MudChip>
                     </MudTd>
                 </RowTemplate>
             </MudTable>
     </DialogContent>
     <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="AcceptSpotAsync">Accept offer</MudButton>
+        <MudButton Color="Color.Info" OnClick="(() => AddOfferAsync(_selectedOffer!.SpotId))">Start negotiation</MudButton>
+        <MudButton Color="Color.Primary" OnClick="AcceptSpotAsync">Accept offer</MudButton> <br/>
         <MudButton Color="Color.Error" OnClick="RejectSpotAsync">Reject all offers</MudButton>
         <MudButton OnClick="Cancel">Cancel</MudButton>
     </DialogActions>
@@ -68,10 +70,13 @@
     private IMudDialogInstance? MudDialog { get; set; }
 
     [Parameter]
-    public List<DbModels.Offer> Offers { get; set; } = new();
+    public List<DbModels.Offer> Offers { get; set; } = [];
 
     [Parameter]
     public TimeSpan? UserOffset {get; set;}
+
+    [Parameter]
+    public Guid IssuerId {get;set;}
 
     DbModels.Offer? _selectedOffer { get; set; }
     int _selectedRowNumber = -1;
@@ -136,8 +141,21 @@
         return string.Empty;
     }
 
-    string GetValidTillInUserDateTime(DateTimeOffset validTill)
+    string GetValidTillInUserTime(DateTimeOffset validTill)
     {
-        return _dateTimeProvider.ToUserLocalDateTime(validTill, UserOffset ?? TimeSpan.Zero);
+        return _dateTimeProvider.ToUserLocalTime(validTill, UserOffset ?? TimeSpan.Zero);
+    }
+    async Task AddOfferAsync(Guid spotId)
+    {
+        if(_selectedOffer is not null)
+        {
+            var createOfferResult = await new CreateOfferCommand(
+                spotId, IssuerId, _selectedOffer.UserId, Random.Shared.Next(100, 200) * 1.5M, Currency.Code.EUR,
+                null, _dateTimeProvider.Now().AddMinutes(2)
+            ).ExecuteAsync();
+
+            if(createOfferResult.IsError)
+                Console.WriteLine($"Error: addOffer - {createOfferResult.ErrorMsg}");
+        }
     }
 }

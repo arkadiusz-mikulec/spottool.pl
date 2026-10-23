@@ -1,91 +1,26 @@
-﻿@page "/spots/{UserId:int}/{Id:guid?}"
-@using System.Threading.Channels
-@using FastEndpoints
+﻿@page "/spots/{Id:guid}"
 @using Marten
 @using Microsoft.JSInterop
 @using MudBlazor
-@using SpotTool.Web.Contracts
 @using SpotTool.Web.Contracts.UI.Spot
-@using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
-@using SpotTool.Web.Domain.Types
-@using SpotTool.Web.Features.Offers.Create
-@using SpotTool.Web.Features.Shared.Channels
-@using SpotTool.Web.Features.Shared.Spots
-@using SpotTool.Web.Features.Spots.Create
 @using SpotTool.Web.Features.Users
 
-@inject SpotService _spotService
-@inject SpotChannelManager _spotChannelMenager
-@* @inject PersistentComponentState ApplicationState *@
-@implements IDisposable
 @inject IDocumentSession session
 @inject IJSRuntime _jsRuntime
 @inject IDateTimeProvider _dateTimeProvider
 @inject UserService _userService
 @inject NavigationManager _navi
 @inject IConfiguration _appConfig
-@inject IDialogService DialogService
 
-
-<MudSelect @bind-Value="@currentUserId">
-    <MudSelectItem Value="1">@("arkadiusz.mikulec@gmail.com")</MudSelectItem>
-    <MudSelectItem Value="2">@("amikulec@sostmeier.pl")</MudSelectItem>
-    <MudSelectItem Value="3">@("biuro@e-site.pl")</MudSelectItem>
-</MudSelect>
-
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateUser">Update</MudButton> 
-
-<p>@userDataProvider?.Email with offset @userDataProvider?.userOffset.ToString()</p>
-
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSpotAsync" Disabled="@createSpotBtnDisabled">Create spot</MudButton> 
 
 <MudGrid>
     <MudItem xs="12">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-            <MudTable Items="@Spots" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading" LoadingProgressColor="Color.Info">
-                <HeaderContent>
-                    <MudTh>Id</MudTh>
-                    <MudTh>Deadline</MudTh>
-                    <MudTh>Current Status</MudTh>
-                    <MudTh>Contact person</MudTh>
-                    <MudTh>Contact phone</MudTh>
-                    <MudTh>Operations</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Id">
-                        @{
-                            string link = $"/spots/{context.SpotModel.Spot.Id}";
-                            string pseudoNumber = $"Spot-{Random.Shared.Next(1000, 9999)}";
-                        }
-                        <MudLink Href="@link">@pseudoNumber</MudLink>
-                    </MudTd>
-                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalDateTime(context.SpotModel.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
-                    <MudTd DataLabel="Current Status">
-                        @{
-                            (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
-                        }
-                        <MudChip T="string" Color="@color" Style="@style"
-                            OnClick="((e) => OpenDialogAsync(context.SpotModel.Spot.Id))" Disabled="false">
-                                @text
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
-                    <MudTd DataLabel="Contact phone" HideSmall="true">@context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile</MudTd>
-                    <MudTd DataLabel="Operations">
-                        @if(userDataProvider?.Roles.Contains(Role.User.Bidder) == true)
-                        {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="((e) => AddOfferAsync(context.SpotModel.Spot.Id))">
-                                Add offer
-                            </MudButton>
-                        }
-                        @string.Format("Btm: {0}", string.Join(" + ", context.SpotButtons.Select(m=>m.ButtonText)))
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+            Do zrobienia: @Id
         </MudPaper>
     </MudItem>
-    @* <MudItem xs="6">
+    <MudItem xs="6">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6</MudPaper>
     </MudItem>
     <MudItem xs="6">
@@ -102,312 +37,17 @@
     </MudItem>
     <MudItem xs="3">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=3</MudPaper>
-    </MudItem> *@
+    </MudItem>
 </MudGrid>
 
 @code {
     [Parameter]
-    public Guid? Id {get; set;} = null;
-    [Parameter]
-    public int UserId {get; set;} = 1;
-    List<SpotUIRespond> Spots { get; set; } = [];
-    //List<DbModels.Offer> Offers {get; set;} = [];
-    private CancellationTokenSource cts = new CancellationTokenSource();
-    //private PersistingComponentStateSubscription _subscription; #Checkit
-    //int offsetInMinutes = 0;
-    //DbModels.User? user {get; set;} = null;
-    //TimeSpan userOffset = TimeSpan.Zero;
-    int currentUserId = 1;
-    @* [Inject]
-    protected SpotService _spotService {get; set;} = new(); *@
-    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, List<Role.User> Roles, Status.User Status);
-    UserProvider? userDataProvider = null;
-    bool loading {  get; set; } = true;
-    bool createSpotBtnDisabled = true;
+    public Guid Id {get; set;}
+    SpotUIRespond? Spot {get; set;} = null;
 
-    private Task OpenDialogAsync(Guid spotId)
+    protected override void OnInitialized()
     {
-        var spot = Spots.FirstOrDefault(m=>m.SpotModel.Spot.Id == spotId);
 
-        if(spot is null)
-            return Task.CompletedTask;
-
-        List<DbModels.Offer>? spotOffers = null; 
-
-        // Issuer. Ale mozemy miec ta dane rowniez w SpotUiRespond
-        if(userDataProvider?.Id == spot.SpotModel.Spot.UserId)
-            spotOffers = spot.SpotModel.Offers;
-        else
-            spotOffers = spot.SpotModel.Offers?.Where(m=>m.UserId == userDataProvider!.Id).ToList();
-
-        if(spotOffers is not null && spotOffers.Count > 0)
-        {
-            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var parameters = new DialogParameters<Dialog>();
-
-            parameters.Add(x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)]);
-            parameters.Add(x => x.UserOffset, userDataProvider?.userOffset);
-
-            //alternatywa
-            @* var parameters = new DialogParameters<Dialog>
-            {
-                { nameof(Dialog.Offers), [.. spotOffers.OrderBy(m => m.Value)] },
-                { nameof(Dialog.UserOffset), userDataProvider?.userOffset }
-            }; *@
-
-            return DialogService.ShowAsync<Dialog>($"Offer's history for SpotID: {spotId}", parameters, options);    
-        }
-        return Task.CompletedTask;
-    }
-    async Task AddOfferAsync(Guid spotId)
-    {
-        var createOfferresult = await new CreateOfferCommand(
-            spotId, userDataProvider!.Id, userDataProvider.Id, Random.Shared.Next(200, 500) * 1.5M, Currency.Code.EUR,
-            "Loading tomorrow", null
-        ).ExecuteAsync();
-
-        if(createOfferresult.IsError)
-            Console.WriteLine($"Error: addOfer - {createOfferresult.ErrorMsg}");
-        
-    }
-    async Task CreateSpotAsync()
-    {
-        var creatSpotCommand = new CreateSpotCommand(
-            userDataProvider!.Id,
-            "DE45->PL12",
-            850,
-            null, 
-            Status.Spot.Ok, 
-            null
-        );
-
-        var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
-    }
-    Task UpdateUser()
-    {
-        _navi.NavigateTo($"/spots/{currentUserId}", true);
-        return Task.CompletedTask;
-    }
-    protected override async Task OnInitializedAsync()
-    {
-        (string, TimeSpan) currentUser = 
-            (UserId == 1 ? 
-                ("arkadiusz.mikulec@gmail.com", TimeSpan.FromMinutes(120)) : 
-            UserId == 2 ? 
-                ("amikulec@sostmeier.pl", TimeSpan.FromMinutes(60)) : ("biuro@e-site.pl", TimeSpan.Zero));
-
-        //To bedzie kol na stronie logowanie
-        var user = await _userService.GetUserByEmailAsync(currentUser.Item1, cts.Token);
-
-        userDataProvider = new UserProvider(
-            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Roles, user.Status);
-
-        Console.WriteLine($"Current user: {userDataProvider.Email}");
-
-        if(userDataProvider.Roles.Contains(Role.User.Issuer) || userDataProvider.Roles.Contains(Role.User.Admin))
-            createSpotBtnDisabled = false;
-        else
-            createSpotBtnDisabled = true;
-
-        
-
-        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles, userDataProvider.userGroups);
-
-        DateTimeOffset start = new DateTimeOffset(
-            DateOnly.FromDateTime(
-                DateTime.Today.AddDays(
-                    Convert.ToInt32(_appConfig["UiSettings:DeafultSpotRangeStart"]))
-            ), 
-            TimeOnly.FromTimeSpan(TimeSpan.Zero), 
-            TimeSpan.Zero
-        );
-
-        DateTimeOffset end = new DateTimeOffset(
-            DateOnly.FromDateTime(
-                DateTime.Today.AddDays(
-                    Convert.ToInt32(_appConfig["UiSettings:DeafultSpotRangeEnd"]))
-            ), 
-            TimeOnly.FromTimeSpan(new TimeSpan(23, 59, 59)), 
-            TimeSpan.Zero);
-
-        Console.WriteLine($"Initialize spots for range from: {start} to: {end}");
-
-        Spots = await _spotService.InitSpotsAsync(
-            userDataProvider.Id, 
-            userDataProvider.Roles, 
-            start, 
-            end, 
-            cts.Token
-        );
-
-        _ = ConsumeSpotChannelsAsync(reader);
-        loading = false;
-    }
-
-    @* protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(firstRender)
-        {
-            offsetInMinutes = await _jsRuntime.InvokeAsync<int>("getUserTimezoneOffsetInMinutes");
-
-            if(userDataProvider?.userOffset != TimeSpan.FromMinutes(offsetInMinutes))
-            {
-                userDataProvider = userDataProvider! with { userOffset = TimeSpan.FromMinutes(offsetInMinutes) };
-                Console.WriteLine($"User offset has changed to : {userDataProvider.userOffset}. Page need to be rerender!");  
-                StateHasChanged();    
-            }
-        } 
-        
-        //return base.OnAfterRenderAsync(firstRender);
-    }*@
-
-    async Task ConsumeSpotChannelsAsync(ChannelReader<SpotSignal> reader)
-    {
-        try
-        {
-            // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
-            // i nie wywołano anulowania (np. poprzez zamknięcie strony)
-            await foreach (var signal in reader.ReadAllAsync(cts.Token))
-            {
-                // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
-                await InvokeAsync(() =>
-                {
-                    switch(signal.Type)
-                    {
-                        case SignalType.SpotCreate:
-                            if (signal.SpotUiRespond != null)
-                            { 
-                                Console.WriteLine("Add/edit spot");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
-                                if (spot is null)
-                                    Spots.Add(signal.SpotUiRespond);
-                            }
-                            break;
-
-                        case SignalType.SpotStatusUpdate:
-                            if (signal.SpotStatusUIRespond != null)
-                            {
-                                Console.WriteLine("Update spot status");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
-                                if (spot is not null)
-                                {
-                                    Console.WriteLine($"Current status: {spot.StatusUIRespond.CurrentSpotStatus}");
-                                    if(signal.SpotStatusUIRespond.CurrentSpotStatus == Status.Spot.Deleted ||
-                                        (signal.SpotStatusUIRespond.CurrentSpotStatus == Status.Spot.EndedNoOffer &&
-                                        !spot.SpotModel.Spot.UserId.Equals(userDataProvider?.Id))
-                                    )
-                                        Spots.Remove(spot);
-                                    else
-                                        spot.StatusUIRespond = signal.SpotStatusUIRespond;
-                                }
-                            }
-                            break;
-                        case SignalType.SpotApprove:
-                            if (signal.SpotUiRespond != null)
-                            {
-                                Console.WriteLine("spot approve signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
-                                if (spot is not null) 
-                                    spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
-                                else
-                                    Spots.Add(signal.SpotUiRespond);
-                            }
-                            break;
-                        case SignalType.SpotDeadLineUpdate:
-                            if (signal.SpotDeadlineUpdateRespond is not null)
-                            {
-                                Console.WriteLine("spot deadline update signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotDeadlineUpdateRespond.SpotId);
-                                if (spot is not null)
-                                    spot.SpotModel.Spot.DeadLine = signal.SpotDeadlineUpdateRespond.DeadLine;
-                            }
-                            break;
-                        case SignalType.OfferCreate:
-                            if (signal.SpotStatusUIRespond is not null)
-                            {
-                                Console.WriteLine("offer Create signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
-                                if (spot is not null)
-                                {
-                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
-                                } 
-                            }
-                            break;
-                        case SignalType.OfferReject:
-                            if (signal.SpotStatusUIRespond is not null)
-                            {
-                                Console.WriteLine("offer reject signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
-                                if (spot is not null)
-                                {
-                                    //Chodzi o to ze jak pojawai sie jakkolwiek oferta to moze zmienic sie StatusUIComponent (ostatnia oferta)
-                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
-                                } 
-                            }
-                            break;
-                    }
-                    StateHasChanged(); // Wymuszenie ponownego renderowania UI
-                });
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Normalne zachowanie przy opuszczeniu strony
-        }
-        catch (Exception)
-        {
-            // KLUCZOWE: Zapisujemy błąd w logach aplikacji (np. Serilog, NLog, Console)
-            //Logger.LogError(ex, "Wystąpił krytyczny błąd w tle podczas czytania z Channel.");
-            
-            // Opcjonalnie: Możesz ustawić flagę błędu w UI, aby powiadomić użytkownika
-            //HasError = true;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-    
-    
-
-    @* async Task ConsumeOfferChannelAsync()
-    {
-        try
-        {
-            // Czytamy dane asynchronicznie tak długo, jak channel jest otwarty
-            // i nie wywołano anulowania (np. poprzez zamknięcie strony)
-            await foreach (var message in _offerChannel.Reader.ReadAllAsync(cts.Token))
-            {
-                // Zmiana stanu musi nastąpić w bezpiecznym wątku powiązanym z obwodem Blazora
-                await InvokeAsync(() =>
-                {
-                    Console.WriteLine("Offer consuming");
-                    Offers.Add(message);
-                    int spotIndex = Spots.FindIndex(m=>m.Id == message.SpotId);
-                    Spots[spotIndex].CurrentStatus = Domain.Types.Status.Spot.EndedCostTooHigh;
-                    StateHasChanged(); // Wymuszenie ponownego renderowania UI
-                });
-            }
-            
-        }
-        catch (OperationCanceledException)
-        {
-            // Normalne zachowanie przy opuszczeniu strony
-        }
-    } *@
-
-    public void Dispose()
-    {
-        // Odpinamy subskrypcję stanu, aby zapobiec wyciekom pamięci
-        //_subscription.Dispose();
-
-        if (cts is { IsCancellationRequested: false })
-        {
-            try
-            {
-                cts.Cancel();
-            }
-            catch (ObjectDisposedException) { /* Ignoruj */ }
-        }
-        cts?.Dispose();
-        // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
-        _spotChannelMenager.Unsubscribe(userDataProvider!.Id);
+        //Spot = new SpotUIRespond(new Shared.Spots.SpotModel())
     }
 }

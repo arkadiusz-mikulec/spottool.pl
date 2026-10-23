@@ -22,7 +22,7 @@ public static class InitModels
         {
             new DbModels.User { 
                 ContactDetails = new DbModels.ContactPersonDetail("Arek", "+48881250136", "arkadiusz.mikulec@gmail.com"),  
-                Roles = [Role.User.Admin],
+                Roles = [Role.User.Admin, Role.User.Issuer, Role.User.Bidder],
                 Status = Status.User.Ok
             },
             new DbModels.User { 
