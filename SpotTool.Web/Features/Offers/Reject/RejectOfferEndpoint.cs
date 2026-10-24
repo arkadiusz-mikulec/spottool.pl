@@ -12,12 +12,10 @@ using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Offers.Reject;
 
-// 1. Definicja żądania i odpowiedzi (krótkie rekordy)
-public record Request(string? Reason);
-public record Response(bool Rejected);
+public record Request(Guid CreatedByUserId, Guid CreatedForUserId, string? Reason = null);
+public record Response(bool Rejected, string? Reason = null);
 
-public class CreateEndpoint(IDocumentSession _session, 
-    SpotDistribution _spotDistributor) : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
+public class CreateEndpoint : Endpoint<Request, Response> //EndpointWithoutRequest<Response>
 {
     public override void Configure()
     {
@@ -27,43 +25,22 @@ public class CreateEndpoint(IDocumentSession _session,
 
     public override async Task HandleAsync(Request req, CancellationToken ct)
     {
-        // Logika biznesowa zapisu do Martena/Postgresa
         Guid offerId = Route<Guid>("Id");
 
-        var offer = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.Id == offerId && m.Status != Status.Offer.Deleted)
-            .FirstOrDefaultAsync(ct);
+        var rejectOfferCommandResult = await new RejectOfferCommand(offerId, req.CreatedByUserId, req.CreatedForUserId, req.Reason)
+            .ExecuteAsync(ct);
 
-        if(offer is null)
+        if(rejectOfferCommandResult.IsError)
         {
-            await Send.NotFoundAsync(ct);
-            return; //Task.FromResult(new ProblemDetails();
+            await Send.ResultAsync(TypedResults.Problem(
+                detail: rejectOfferCommandResult.ErrorMsg,
+                statusCode: rejectOfferCommandResult.StatusCode,
+                title: "Offer cannot be rejected"
+            ));
+            
+            return;
         }
-        
-        offer.Status = Status.Offer.Rejected;
-        if(!string.IsNullOrEmpty(req.Reason))
-            offer.RejectReson = req.Reason.Trim().ReplaceLineEndings(" ");
-
-        _session.Store(offer);
-        
-        await _session.SaveChangesAsync(ct);
-
-        var spot = await _session.LoadAsync<DbModels.Spot>(offer.SpotId, ct);
-        if(spot is null)
-        {
-            await Send.NotFoundAsync(ct);
-            return; //Task.FromResult(new ProblemDetails();
-        }
-
-        var offers = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            .ToAsyncEnumerable(ct)
-            .ToListAsync(ct);
-
-        _spotDistributor.SendOfferRejectedToIssuerAndBidder(spot.Id, spot.CurrentStatus, spot.UserId, offer.UserId, offers);
-    
-        // // Błyskawiczna odpowiedź 201 Created
-        // //await Send.CreatedAtAsync<GetById.GetByIdEndpoint>(new { Id = id }, new Response(id), cancellation: ct);
-        await Send.OkAsync(new Response(true), ct);
+           
+        await Send.OkAsync(new Response(true, req.Reason), ct);
     }
 }

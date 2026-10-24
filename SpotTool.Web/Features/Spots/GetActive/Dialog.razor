@@ -4,6 +4,7 @@
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
 @using SpotTool.Web.Features.Offers.Create
+@using SpotTool.Web.Features.Offers.Reject
 @using SpotTool.Web.Features.Spots.Accept
 @using SpotTool.Web.Features.Spots.Reject
 
@@ -58,9 +59,23 @@
             </MudTable>
     </DialogContent>
     <DialogActions>
-        <MudButton Color="Color.Info" OnClick="(() => AddOfferAsync(_selectedOffer!.SpotId))">Start negotiation</MudButton>
-        <MudButton Color="Color.Primary" OnClick="AcceptSpotAsync">Accept offer</MudButton> <br/>
-        <MudButton Color="Color.Error" OnClick="RejectSpotAsync">Reject all offers</MudButton>
+        @if(IssuerId.Equals(SpotUserId))
+        {
+            //Powinno byc sterowane z Serwera jak przyciski na stronie /spot/active
+            if(SpotStatus != Status.Spot.Negotiation)
+            {
+                <MudButton Color="Color.Info" OnClick="(() => AddOfferAsync(_selectedOffer?.SpotId))">Start negotiation</MudButton>
+            }
+            <MudButton Color="Color.Primary" OnClick="AcceptSpotAsync">Accept offer</MudButton> <br/>
+            <MudButton Color="Color.Error" OnClick="RejectSpotAsync">Reject all offers</MudButton>
+        }
+        else
+        {
+            if(SpotStatus == Status.Spot.Negotiation)
+            {
+                <MudButton Color="Color.Info" OnClick="RejectOfferAsync">Reject negotiation</MudButton>
+            }
+        }
         <MudButton OnClick="Cancel">Cancel</MudButton>
     </DialogActions>
 </MudDialog>
@@ -77,6 +92,10 @@
 
     [Parameter]
     public Guid IssuerId {get;set;}
+    [Parameter]
+    public Guid SpotUserId {get; set;}
+    [Parameter]
+    public Status.Spot SpotStatus {get; set;}
 
     DbModels.Offer? _selectedOffer { get; set; }
     int _selectedRowNumber = -1;
@@ -86,6 +105,24 @@
     {
         _selectedOffer = Offers.FirstOrDefault(m=>m.IsWinnerOffer == true);
         Console.WriteLine($"Selected is: {_selectedOffer?.Id}");
+    }
+
+    private async Task RejectOfferAsync()
+    {
+        if(_selectedOffer is not null)
+        {
+            var rejectOfferCommandResult = await new RejectOfferCommand(
+                    _selectedOffer.Id, 
+                    _selectedOffer.CreatedByUser.Id, 
+                    _selectedOffer.CreatedForUser.Id, 
+                    "Test - reject by carrier from dialog")
+                .ExecuteAsync();
+            
+            if(rejectOfferCommandResult.IsError)
+                Console.WriteLine($"Error reject offer: {rejectOfferCommandResult.ErrorMsg}");
+            else
+                MudDialog?.Close(DialogResult.Ok(true));
+        }
     }
     private async Task AcceptSpotAsync()
     {
@@ -103,16 +140,16 @@
 
     private async Task RejectSpotAsync()
     {
-        if(_selectedOffer is not null)
-        {
-            var command = new RejectSpotCommand(_selectedOffer.SpotId);
+        if(Offers.Count > 0)
+        {        
+            var command = new RejectSpotCommand(Offers[0].SpotId);
             var result = await command.ExecuteAsync();
 
             if(result.IsError)
                 Console.WriteLine($"Error reject spot: {result.ErrorMsg}");
             else
                 MudDialog?.Close(DialogResult.Ok(true));
-        }
+        } 
     }
     private void Cancel() => MudDialog?.Cancel();
 
@@ -145,17 +182,19 @@
     {
         return _dateTimeProvider.ToUserLocalTime(validTill, UserOffset ?? TimeSpan.Zero);
     }
-    async Task AddOfferAsync(Guid spotId)
+    async Task AddOfferAsync(Guid? spotId)
     {
-        if(_selectedOffer is not null)
+        if(spotId is not null)
         {
             var createOfferResult = await new CreateOfferCommand(
-                spotId, IssuerId, _selectedOffer.UserId, Random.Shared.Next(100, 200) * 1.5M, Currency.Code.EUR,
+                (Guid)spotId, IssuerId, _selectedOffer!.UserId, Random.Shared.Next(100, 200) * 1.5M, Currency.Code.EUR,
                 null, _dateTimeProvider.Now().AddMinutes(2)
             ).ExecuteAsync();
 
             if(createOfferResult.IsError)
                 Console.WriteLine($"Error: addOffer - {createOfferResult.ErrorMsg}");
+            else
+                MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 }

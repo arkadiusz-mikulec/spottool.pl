@@ -16,15 +16,18 @@ public class CreateOfferHandler(
     SpotDistribution _spotDistributor,
     IDateTimeProvider _dateTimeProvider,
     SpotService _spotService,
-    Channel<Guid> _wakeupChannel) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
+    Channel<Guid> _wakeupChannel,
+    IConfiguration _appConfig) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
 {
     public async Task<CreateOfferRespond> ExecuteAsync(CreateOfferCommand req, CancellationToken ct)
     {
-        var spot = await _session.Query<DbModels.Spot>().FirstOrDefaultAsync(m=>m.Id == req.SpotId, ct);
+        var spot = await _session.LoadAsync<DbModels.Spot>(req.SpotId, ct);
+
         if(spot is null)
             return new CreateOfferRespond("Spot not found");
     
-        var createdForUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateForUserId, ct);
+        var createdForUser = await _session.LoadAsync<DbModels.User>(req.CreateForUserId, ct);
+
         if(createdForUser is null)
             return new CreateOfferRespond("User not found");    
 
@@ -38,19 +41,25 @@ public class CreateOfferHandler(
             spot.CurrentStatus = Status.Spot.Negotiation;
             //spot.NegotiationDeadLine = req.ValidTill;
 
-            createdByUser = await _session.Query<DbModels.User>().FirstOrDefaultAsync(m=>m.Id == req.CreateByUserId, ct);
+            createdByUser = await _session.LoadAsync<DbModels.User>(req.CreateByUserId, ct);
             if(createdByUser is null)
                 return new CreateOfferRespond("User by user not found");
         }
-        else if(spot.CurrentStatus == Status.Spot.Negotiation)
+        else if(prevSpotStatus == Status.Spot.Negotiation)
         {
-            offerStatus = Status.Offer.Negotiated;   
-        }
-        
-        spot.CurrentStatus = NextSpotStatus(spot); 
+            offerStatus = Status.Offer.Negotiated;
 
-        if(!CanAcceptOffer(spot.CurrentStatus, spot.DeadLine, _dateTimeProvider.Now()))
-            return new CreateOfferRespond("Offer cannot be accepted");
+            //If allow ony one means that this is #1 one a nd the last
+            // and we need to cancel the spot immediatly
+            bool allowOnlyOneNegotiation = Convert.ToBoolean(_appConfig["AppSettings:NegotiationSettings:AllowOnlyOneAtTheTime"]);
+            if(allowOnlyOneNegotiation)
+                spot.CurrentStatus = Status.Spot.Ended;
+        }
+        else
+            spot.CurrentStatus = NextSpotStatus(spot); 
+
+        if(!CanAcceptOffer(spot.CurrentStatus, prevSpotStatus, spot.DeadLine, _dateTimeProvider.Now()))
+            return new CreateOfferRespond($"Offer cannot be accepted preStatus: {prevSpotStatus}");
 
         var spotOffers = await _session.Query<DbModels.Offer>()
             .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
@@ -127,11 +136,14 @@ public class CreateOfferHandler(
         return new CreateOfferRespond(IsError: false, OfferId: id);     
     }
 
-    private static bool CanAcceptOffer(Status.Spot status, DateTimeOffset spotDeadline, DateTimeOffset currentDatetime)
+    
+    private static bool CanAcceptOffer(Status.Spot status, Status.Spot prevStatus, DateTimeOffset spotDeadline, DateTimeOffset currentDatetime)
     {
         if(status == Status.Spot.Ok || status == Status.Spot.Bidding && spotDeadline >= currentDatetime)
             return true;
         else if(status == Status.Spot.Negotiation)
+            return true;
+        else if(status == Status.Spot.Ended && prevStatus == Status.Spot.Negotiation)
             return true;
 
         return false;
@@ -150,6 +162,18 @@ public class CreateOfferHandler(
 
         if(spot.CurrentStatus == Status.Spot.Ok)
             return Status.Spot.Bidding;
+        
+        if(spot.CurrentStatus == Status.Spot.Negotiation)
+        {
+            //TODO
+            //Check seetings if many negotiation is allowed
+            //if yes return Status.Spot.Negotiation
+            //else check if this is the last one
+            //if not the last one return Status.Spot.Negotiation
+            //else retrun Status.Spot.Ended
+
+            return spot.CurrentStatus;
+        }
         return spot.CurrentStatus;
     }
 

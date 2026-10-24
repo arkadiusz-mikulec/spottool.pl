@@ -13,7 +13,11 @@ public class SpotUIRespond
             
         if(userRoleForThisSpot == Role.User.Bidder)
         {
-            SpotButtons.Add(Buttons.AddOfferButton());
+            if(spotModel.Spot.CurrentStatus == Status.Spot.Ok || spotModel.Spot.CurrentStatus == Status.Spot.Bidding)
+                SpotButtons.Add(Buttons.AddOfferButton());
+
+            if(spotModel.Spot.CurrentStatus == Status.Spot.Negotiation)
+                SpotButtons.Add(Buttons.RejectOfferButton());
         }
         else
         {
@@ -43,6 +47,7 @@ public enum ButtonAction
     COPY_SPOT,
     ADD_OFFER,
     DELETE_OFFER,
+    REJECT_OFFER,
     DETAILS
 }
 public static class Buttons
@@ -76,6 +81,10 @@ public static class Buttons
     public static Button AddOfferButton()
     { 
         return new Button {ActionName = ButtonAction.ADD_OFFER, ButtonText="Add offer", ButtonIcon = MudBlazor.Icons.Material.Filled.Add, Color = MudBlazor.Color.Primary }; 
+    }
+    public static Button RejectOfferButton()
+    { 
+        return new Button {ActionName = ButtonAction.REJECT_OFFER, ButtonText="Reject neg", ButtonIcon = MudBlazor.Icons.Material.Filled.Cancel, Color = MudBlazor.Color.Info }; 
     }
  
 }

@@ -10,6 +10,7 @@
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
 @using SpotTool.Web.Features.Offers.Create
+@using SpotTool.Web.Features.Offers.Reject
 @using SpotTool.Web.Features.Shared.Channels
 @using SpotTool.Web.Features.Shared.Spots
 @using SpotTool.Web.Features.Spots.Approve
@@ -21,7 +22,7 @@
 @inject SpotChannelManager _spotChannelMenager
 @* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
-@inject IDocumentSession session
+@inject IDocumentSession _session
 @inject IJSRuntime _jsRuntime
 @inject IDateTimeProvider _dateTimeProvider
 @inject UserService _userService
@@ -67,7 +68,7 @@
                         @{
                             (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
                         }
-                        <MudChip T="string" Color="@color" Style="@style"
+                        <MudChip T="@string" Color="@color" Style="@style"
                             OnClick="((e) => OpenDialogAsync(context.SpotModel.Spot.Id))" Disabled="false">
                                 @text
                         </MudChip>
@@ -175,6 +176,8 @@
             parameters.Add(x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)]);
             parameters.Add(x => x.UserOffset, userDataProvider?.userOffset);
             parameters.Add(x=>x.IssuerId, userDataProvider!.Id);
+            parameters.Add(x=>x.SpotUserId, spot.SpotModel.Spot.UserId);
+            parameters.Add(x=>x.SpotStatus, spot.SpotModel.Spot.CurrentStatus);
 
             //alternatywa
             @* var parameters = new DialogParameters<Dialog>
@@ -197,9 +200,34 @@
                 break;
             case ButtonAction.EDIT_SPOT: await UpdateDeadlinaAsync(spotId);
                 break;
+            case ButtonAction.REJECT_OFFER: await RejectOfferAsync(spotId);
+                break;
             default: Console.WriteLine($"button: {buttonAction} was clicked");
                 break;
         }
+    }
+
+    private async Task RejectOfferAsync(Guid spotId)
+    {
+        var offerToReject = await _session.Query<DbModels.Offer>()
+                .FirstOrDefaultAsync(m=>m.SpotId == spotId && m.Status == Status.Offer.ToNegotiation, cts.Token);
+
+        if(offerToReject is null)
+        {
+            Console.WriteLine($"Error offer rejection");
+            return;
+        }
+
+        var rejectOfferCommandResult = await new RejectOfferCommand(
+                offerToReject.Id, 
+                offerToReject.CreatedByUser.Id, 
+                offerToReject.CreatedForUser.Id, 
+                "Test - Carrier reject neg from active page")
+            .ExecuteAsync();
+        
+        if(rejectOfferCommandResult.IsError)
+            Console.WriteLine($"Error offer rejection: {rejectOfferCommandResult.ErrorMsg}");
+    
     }
     async Task ConfirmSpotAsync(Guid spotId)
     {
