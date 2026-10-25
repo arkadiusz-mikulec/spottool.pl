@@ -49,7 +49,7 @@ public class CreateOfferHandler(
         {
             offerStatus = Status.Offer.Negotiated;
 
-            //If allow ony one means that this is #1 one a nd the last
+            //If allow ony one means that this is #1 one and the last
             // and we need to cancel the spot immediatly
             bool allowOnlyOneNegotiation = Convert.ToBoolean(_appConfig["AppSettings:NegotiationSettings:AllowOnlyOneAtTheTime"]);
             if(allowOnlyOneNegotiation)

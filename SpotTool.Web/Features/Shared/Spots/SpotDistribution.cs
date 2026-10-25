@@ -1,9 +1,4 @@
-using FastExpressionCompiler.ImTools;
-using Marten;
-using Microsoft.AspNetCore.Identity;
 using SpotTool.Web.Contracts;
-using SpotTool.Web.Contracts.Spot;
-using SpotTool.Web.Contracts.UI.Offer;
 using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;

@@ -44,21 +44,22 @@ public class SpotService(IDocumentSession _session, IDateTimeProvider _dateTimeP
         
         //Tymczasowo usunolem userId == connectedUserId!! Warunki sa zle nie pokazuja spotów dla Bidderów
         List<DbModels.Spot> spots = [.. await _session.Query<DbModels.Spot>()
-            .Where(m=>(m.CurrentStatus == Status.Spot.Ok ||
+            .Where(m=>m.CurrentStatus == Status.Spot.Ok ||
                 m.CurrentStatus == Status.Spot.Bidding ||
                 m.CurrentStatus == Status.Spot.NotConfirmed ||
                 m.CurrentStatus == Status.Spot.Negotiation ||
-                m.CurrentStatus == Status.Spot.Ended))
+                m.CurrentStatus == Status.Spot.Ended)
             .ToListAsync(ct)
         ];
 
         spots.AddRange(await GetEndedSpots(connectedUserId, today, today.AddDays(1), ct));
 
-        spots.AddRange([.. await _session.Query<DbModels.Spot>()
-            .Where(m=>m.BiddersId!.Contains(connectedUserId) &&
-                m.DeadLine >= today && m.DeadLine < today.AddDays(1))
-            .ToListAsync(ct)
-        ]);
+        //Tmp solition to not duble position in spot list
+        // spots.AddRange([.. await _session.Query<DbModels.Spot>()
+        //     .Where(m=>m.BiddersId!.Contains(connectedUserId) &&
+        //         m.DeadLine >= today && m.DeadLine < today.AddDays(1))
+        //     .ToListAsync(ct)
+        // ]);
             
         return await InitSpotUiRespond(spots, connectedUserId, ct);
     }
