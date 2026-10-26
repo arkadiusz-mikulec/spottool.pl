@@ -290,6 +290,7 @@
                 {
                     switch(signal.Type)
                     {
+                        //OK !!!
                         case SignalType.SpotCreate:
                             if (signal.SpotUiRespond != null)
                             { 
@@ -299,27 +300,9 @@
                                     Spots.Add(signal.SpotUiRespond);
                             }
                             break;
-
-                        case SignalType.SpotStatusUpdate:
-                            if (signal.SpotStatusUIRespond != null)
-                            {
-                                Console.WriteLine("Update spot status");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
-                                if (spot is not null)
-                                {
-                                    Console.WriteLine($"Current status: {spot.StatusUIRespond.CurrentSpotStatus}");
-                                    if(signal.SpotStatusUIRespond.CurrentSpotStatus == Status.Spot.Deleted ||
-                                        (signal.SpotStatusUIRespond.CurrentSpotStatus == Status.Spot.EndedNoOffer &&
-                                        !IsSpotCreator(userDataProvider?.Id, spot.SpotModel.Spot.UserId))
-                                    )
-                                        Spots.Remove(spot);
-                                    else
-                                        spot.StatusUIRespond = signal.SpotStatusUIRespond;
-                                }
-                            }
-                            break;
+                        //Ok!!
                         case SignalType.SpotApprove:
-                            if (signal.SpotUiRespond != null)
+                            if (signal.SpotUiRespond is not null)
                             {
                                 var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
                                 if (spot is not null)
@@ -339,11 +322,13 @@
                                     } *@
                                     spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
                                     spot.SpotButtons = signal.SpotUiRespond.SpotButtons;
+                                    spot.SpotModel = signal.SpotUiRespond.SpotModel;
                                 }
                                 else
                                     Spots.Add(signal.SpotUiRespond);
                             }
                             break;
+                        //OK!!
                         case SignalType.SpotDeadLineUpdate:
                             if (signal.SpotDeadlineUpdateRespond is not null)
                             {
@@ -353,20 +338,45 @@
                                     spot.SpotModel.Spot.DeadLine = signal.SpotDeadlineUpdateRespond.DeadLine;
                             }
                             break;
-                        case SignalType.OfferCreate:
-                            if (signal.SpotStatusUIRespond is not null)
+                        // Usuneło z listy ale negocjacja sie posypała
+                        case SignalType.SpotStatusUpdate:
+                            if (signal.SpotUiRespond is not null)
                             {
-                                Console.WriteLine("offer Create signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
+                                Console.WriteLine("Update spot status");
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
                                 if (spot is not null)
                                 {
-                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
-                                    if(signal.Offer is not null)
-                                        if(spot.SpotModel.Offers is null)
-                                            spot.SpotModel = spot.SpotModel with {Offers = [signal.Offer]};
-                                        else    
-                                            spot.SpotModel.Offers.Add(signal.Offer);
-                                } 
+                                    var currentStatus = signal.SpotUiRespond.SpotModel.Spot.CurrentStatus;
+                                    var userPlacedTheBid = signal.SpotUiRespond.SpotModel.Spot.BiddersId?.Any(m=>m == userDataProvider?.Id);
+
+                                    Console.WriteLine($"Current status: {currentStatus}, userPlacedTheBid: {userPlacedTheBid}");
+                                    if(currentStatus == Status.Spot.Deleted ||
+                                        ((userPlacedTheBid is null || userPlacedTheBid == false) &&
+                                        !IsSpotCreator(userDataProvider?.Id, signal.SpotUiRespond.SpotModel.Spot.UserId))
+                                    )
+                                        Spots.Remove(spot);
+                                    else
+                                    {
+                                        spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
+                                        spot.SpotButtons = signal.SpotUiRespond.SpotButtons;
+                                        spot.SpotModel = signal.SpotUiRespond.SpotModel;
+                                    }
+                                }
+                            }
+                            break;
+                        //OfferCreate jest jak status update #thinkAboutIt
+                        case SignalType.OfferCreate:
+                            if (signal.SpotUiRespond is not null)
+                            {
+                                Console.WriteLine("offer Create signal");
+                                var spot = Spots.FirstOrDefault(s => 
+                                    s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
+                                if (spot is not null)
+                                {
+                                    spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
+                                    spot.SpotButtons = signal.SpotUiRespond.SpotButtons;
+                                    spot.SpotModel = signal.SpotUiRespond.SpotModel;
+                                }
                             }
                             break;
                         case SignalType.OfferReject:

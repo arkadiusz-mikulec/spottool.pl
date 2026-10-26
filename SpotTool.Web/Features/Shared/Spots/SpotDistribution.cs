@@ -14,6 +14,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
     // Wspólna, prywatna metoda dystrybuująca sygnały do właściwych kanałów personalnych
     public Task SendSpotCreatedToAuthorizedUsers(SpotModel spotModel)
     {
+        string methodeName = "SendSpotCreatedToAuthorizedUsers";
         try
         {
             if(spotModel.Spot.CurrentStatus == Status.Spot.NotConfirmed)
@@ -32,7 +33,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         }
         catch(Exception ex)
         {
-            Console.WriteLine($"[EXCEPTION]: {ex.Message} in SpotDistribution.SendSpotDatatoAuthorize");
+            Console.WriteLine($"[EXCEPTION] in {_serviceName}->{methodeName}. Msg: {ex.Message}");
         }
         return Task.CompletedTask;
     }
@@ -51,64 +52,6 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
             if(!userSubscription.Writer.TryWrite(signal))
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
-    }
-
-    public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel, DbModels.Offer? offer)
-    {
-        string methodName = "SendOfferCreatedToAuthorizedUsers";
-        try
-        {
-            var activeUsers = _spotChannelManager.GetAllUserSubscriptionData();
-            foreach (var user in activeUsers)
-                SendOfferCreatedToUser(spotModel, offer, user);
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine($"[EXCEPTION]: {_serviceName}->{methodName}. Msg: {ex.Message}");
-        }
-        return Task.CompletedTask;
-    }
-
-    public void SendOfferCreatedToUser(SpotModel spotModel, DbModels.Offer? offer, UserSubscription? userSubscription)
-    {
-        if(userSubscription is null)
-            return;
-
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
-        if(sendSignal)
-        {
-            var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers);
-            var signal = new SpotSignal(SignalType.OfferCreate, null, spotStatusUi, offer, null); 
-
-            if(!userSubscription.Writer.TryWrite(signal))
-                _spotChannelManager.Unsubscribe(userSubscription.UserId);
-        }
-    }
-
-    public void SendOfferRejectedToIssuerAndBidder(Guid spotId, Status.Spot spotStatus, Guid issuerId, Guid bidderId, List<DbModels.Offer> offers)
-    {
-        
-        var issuer = _spotChannelManager.GetUserSubscriptionData(issuerId);
-        var bidder = _spotChannelManager.GetUserSubscriptionData(bidderId);
-
-        if(issuer is not null)
-        {
-            var statusUIRespond = new SpotStatusUIRespond(spotId, bidderId, spotStatus, Role.User.Issuer, offers);        
-            var signal = new SpotSignal(SignalType.OfferReject, null, statusUIRespond, null, null); 
-
-            if(!issuer.Writer.TryWrite(signal))
-                _spotChannelManager.Unsubscribe(issuer.UserId);
-        }
-            
-        if(bidder is not null)
-        {
-            var statusUIRespond = new SpotStatusUIRespond(spotId, bidderId, spotStatus, Role.User.Bidder, offers);        
-            var signal = new SpotSignal(SignalType.OfferReject, null, statusUIRespond, null, null); 
-
-            if(!bidder.Writer.TryWrite(signal))
-                _spotChannelManager.Unsubscribe(bidder.UserId);
-        }
-            
     }
 
     public Task SendSpotApproveToAuthorizedUsers(SpotModel spotModel)
@@ -143,6 +86,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
     }
+
     public Task SendSpotDeadlineUpdateToAuthorizedUsers(SpotModel spotModel)
     {
         string methodName = "SendSpotDeadlineUpdateToAuthorizedUsers";
@@ -176,7 +120,6 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
     }
-    //Zmienic tak jak jest zrobione funkcja SendSpotDataToAll
     public Task SendSpotStatusToAuthorizedUsers(SpotModel spotModel)
     {
         try
@@ -202,18 +145,92 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
         if(sendSignal)
         {
-            //Console.WriteLine($"@@@ Offers count: {spotModel.Offers?.Count}. Current status: {spotModel.Spot.CurrentStatus}");
             var signal = new SpotSignal(
                 SignalType.SpotStatusUpdate, 
+                new SpotUIRespond(spotModel, userSubscription.UserId, userRole), 
+                null,
                 null, 
-                new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers),
-                null, null
+                null
             );
 
             if(!userSubscription.Writer.TryWrite(signal))
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
+    }
 
+//Not checked
+    public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel, DbModels.Offer? offer)
+    {
+        string methodName = "SendOfferCreatedToAuthorizedUsers";
+        try
+        {
+            var activeUsers = _spotChannelManager.GetAllUserSubscriptionData();
+            foreach (var user in activeUsers)
+                SendOfferCreatedToUser(spotModel, offer, user);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION]: {_serviceName}->{methodName}. Msg: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
+    public void SendOfferCreatedToUser(SpotModel spotModel, DbModels.Offer? offer, UserSubscription? userSubscription)
+    {
+        if(userSubscription is null)
+            return;
+
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        if(sendSignal)
+        {
+            //var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers);
+            var spotUi = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
+            var signal = new SpotSignal(SignalType.OfferCreate, spotUi, null, offer, null); 
+
+            if(!userSubscription.Writer.TryWrite(signal))
+                _spotChannelManager.Unsubscribe(userSubscription.UserId);
+        }
+    }
+
+    public void SendOfferRejectedToIssuerAndBidder(SpotModel spotModel, DbModels.Offer offer)
+    {
+        Guid spotUserId = spotModel.Spot.UserId;
+        //bool isNormalOffer = offer.CreatedByUser.Id.Equals(offer.CreatedForUser.Id);
+
+        var issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
+        var bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id); 
+
+        SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
+        SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
+
+        // if(isNormalOffer)
+        // {
+        //     issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
+        //     bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id);
+
+        //     SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
+        //     SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
+        // }
+        // else
+        // {
+        //     issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
+        //     bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id);
+
+        //     SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
+        //     SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
+        // }
+        
+    }
+    private static void SetSpotUIRespondAndSendSignal(SpotModel spotModel, UserSubscription? userSubscription, Role.User userRole, SignalType signalType, SpotChannelManager spotChannelManager)
+    {
+        if(userSubscription is null)
+            return;
+
+        var spotUi = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
+        var signal = new SpotSignal(signalType, spotUi, null, null, null); 
+
+        if(!userSubscription.Writer.TryWrite(signal))
+            spotChannelManager.Unsubscribe(userSubscription.UserId);
     }
 
     private static (bool sendSignal, Role.User userRole) SendTheSignal(SpotModel spotModel, UserSubscription userSubscription, List<Guid> carrierGroup)

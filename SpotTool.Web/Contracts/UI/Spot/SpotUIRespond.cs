@@ -15,20 +15,34 @@ public class SpotUIRespond
         {
             if(spotModel.Spot.CurrentStatus == Status.Spot.Ok || spotModel.Spot.CurrentStatus == Status.Spot.Bidding)
                 SpotButtons.Add(Buttons.AddOfferButton());
-
-            if(spotModel.Spot.CurrentStatus == Status.Spot.Negotiation)
+            else if(spotModel.Spot.CurrentStatus == Status.Spot.Negotiation)
                 SpotButtons.Add(Buttons.RejectOfferButton());
+            else
+             SpotButtons = [];
         }
         else
         {
-            List<Button> defaultButtons = [Buttons.EditButton(), Buttons.CopyButton(), Buttons.DeleteButton()];
             if(spotModel.Spot.CurrentStatus == Status.Spot.NotConfirmed)
             {
-                SpotButtons.Add(Buttons.ConfirmButton());
-                SpotButtons.AddRange(defaultButtons);
+                SpotButtons.AddRange([
+                    Buttons.ConfirmButton(), 
+                    Buttons.EditButton(),
+                    Buttons.CopyButton(), 
+                    Buttons.DeleteButton()
+                ]);
+            }
+            else if(spotModel.Spot.CurrentStatus == Status.Spot.Ok || spotModel.Spot.CurrentStatus == Status.Spot.Bidding)
+            {
+                SpotButtons.AddRange([
+                    Buttons.EditButton(),
+                    Buttons.CopyButton(), 
+                    Buttons.DeleteButton()
+                ]);
             }
             else 
-                SpotButtons.AddRange(defaultButtons);
+                SpotButtons.AddRange([
+                    Buttons.CopyButton()
+                ]);
         }
     }
     // SpotmMdel to record

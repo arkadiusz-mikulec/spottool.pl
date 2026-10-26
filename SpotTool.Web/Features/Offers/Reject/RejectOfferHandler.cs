@@ -9,7 +9,8 @@ namespace SpotTool.Web.Features.Offers.Reject;
 public record RejectOfferRespond(string? ErrorMsg = null, int StatusCode = StatusCodes.Status404NotFound, bool IsError = true);
 public record RejectOfferCommand(Guid OfferId, Guid CreateByUserId, Guid CreatedForUserId, string? Reason = null) : ICommand<RejectOfferRespond>;
 public class RejectOfferHandler(IDocumentSession _session,
-    SpotDistribution _spotDistribution) : ICommandHandler<RejectOfferCommand, RejectOfferRespond>
+    SpotDistribution _spotDistribution,
+    SpotService _spotService) : ICommandHandler<RejectOfferCommand, RejectOfferRespond>
 {
     public async Task<RejectOfferRespond> ExecuteAsync(RejectOfferCommand command, CancellationToken ct)
     {
@@ -28,6 +29,9 @@ public class RejectOfferHandler(IDocumentSession _session,
         if(!command.CreateByUserId.Equals(command.CreatedForUserId))
         {
             spot.CurrentStatus = Status.Spot.Ended;
+
+            //SetOferStatusRejectedAndReson(offer, command.Reason);
+
             _session.Store(spot);
             _session.Store(new DbModels.SpotStatusHistory
             {
@@ -36,15 +40,9 @@ public class RejectOfferHandler(IDocumentSession _session,
             });
         }
         else
-        {
-            offer.Status = Status.Offer.Rejected;
-
-            if(!string.IsNullOrEmpty(command.Reason))
-                offer.RejectReson = command.Reason.Trim().ReplaceLineEndings(" ");
-
-            _session.Store(offer);
-        }
-        
+            SetOferStatusRejectedAndReson(offer, command.Reason);
+            
+        _session.Store(offer);
         await _session.SaveChangesAsync(ct);
 
         var offers = await _session.Query<DbModels.Offer>()
@@ -52,8 +50,20 @@ public class RejectOfferHandler(IDocumentSession _session,
             .ToAsyncEnumerable(ct)
             .ToListAsync(ct);
 
-        _spotDistribution.SendOfferRejectedToIssuerAndBidder(spot.Id, spot.CurrentStatus, spot.UserId, offer.UserId, offers);
+        SpotModel spotModel = new (spot, offers, 
+            await _spotService.GetSpotGroups(spot.Id, ct),
+            await _spotService.GetUsersExcluded(spot.Id, ct));
+            
+        _spotDistribution.SendOfferRejectedToIssuerAndBidder(spotModel, offer);
 
         return new RejectOfferRespond(IsError: false, StatusCode: StatusCodes.Status200OK);
+    }
+
+    private static void SetOferStatusRejectedAndReson(DbModels.Offer offer, string? reason)
+    {
+        offer.Status = Status.Offer.Rejected;
+
+        if(!string.IsNullOrEmpty(reason))
+            offer.RejectReson = reason.Trim().ReplaceLineEndings(" ");
     }
 }
