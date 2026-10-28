@@ -2,6 +2,7 @@ using FastEndpoints;
 using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.Accept;
@@ -12,7 +13,8 @@ public record AcceptSpotCommand(Guid SpotId, Guid OfferId) : ICommand<AcceptSpot
 public class AcceptSpotHandler(
     IDocumentSession _session,
     SpotDistribution _spotDistribution,
-    SpotService _spotService) : ICommandHandler<AcceptSpotCommand, AcceptSpotRespond>
+    SpotService _spotService,
+    OfferService _offerService) : ICommandHandler<AcceptSpotCommand, AcceptSpotRespond>
 {
     public async Task<AcceptSpotRespond> ExecuteAsync(AcceptSpotCommand command, CancellationToken ct)
     {
@@ -58,9 +60,15 @@ public class AcceptSpotHandler(
 
         await _session.SaveChangesAsync(ct);
 
+        // rozwiazenie pokazuje tylko ostatnią oferte
+        // var lastOffers = await _offerService.GetLastOffersForSpotAsync(spot, ct);
+        // var lastOffersIds = lastOffers.Select(m=>m.Id);
+        // if(!lastOffersIds.Contains(winnerOffer.Id))
+        //     lastOffers.Add(winnerOffer);
+
         var spotModel = new SpotModel(
             spot, 
-            [winnerOffer], 
+            await _offerService.GetAllOffersForSpot(spot, ct), 
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct)
         );

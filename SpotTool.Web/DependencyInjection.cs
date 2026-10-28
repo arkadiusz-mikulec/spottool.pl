@@ -10,6 +10,7 @@ using SpotTool.Web.Domain.BgServices;
 using SpotTool.Web.Features.Shared.Channels;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Features.Users;
+using SpotTool.Web.Features.Shared.Offers;
 
 namespace SpotTool.Web;
 
@@ -19,6 +20,7 @@ public static class DependencyInjection
     {
         services.AddScoped<SpotService>();
         services.AddScoped<UserService>();
+        services.AddScoped<OfferService>();
         
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<SpotDistribution>();

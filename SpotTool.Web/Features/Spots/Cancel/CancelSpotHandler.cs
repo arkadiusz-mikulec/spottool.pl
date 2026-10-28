@@ -4,6 +4,7 @@ using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.Cancel;
@@ -13,7 +14,8 @@ public record CancelSpotCommand(Guid SpotId, string? Reason): ICommand<CancelSpo
 
 public class CancelSpotHandler(IDocumentSession _session,
     SpotDistribution _spotDistribution,
-    SpotService _spotService) : ICommandHandler<CancelSpotCommand, CancelSpotRespond>
+    SpotService _spotService,
+    OfferService _offerService) : ICommandHandler<CancelSpotCommand, CancelSpotRespond>
 {
     public async Task<CancelSpotRespond> ExecuteAsync(CancelSpotCommand command, CancellationToken ct)
     {
@@ -37,15 +39,9 @@ public class CancelSpotHandler(IDocumentSession _session,
 
         await _session.SaveChangesAsync(ct);
 
-        var spotOffers = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            .OrderBy(m=>m.Value)
-            .ToAsyncEnumerable(ct)
-            .ToListAsync(ct);
-
         var spotModel = new SpotModel(
             spot, 
-            spotOffers,
+            await _offerService.GetAllOffersForSpot(spot, ct),
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct) 
         );

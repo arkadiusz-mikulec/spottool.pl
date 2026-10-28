@@ -148,11 +148,7 @@
         //return base.OnAfterRenderAsync(firstRender);
     }*@
 
-    //Powinno byc w jakims service bo czesto to sprawdzam i w równych miejscach
-    bool IsSpotCreator(Guid? userId, Guid spotUserId)
-    {
-        return spotUserId.Equals(userId);
-    }
+    
     private Task OpenDialogAsync(Guid spotId)
     {
         var spot = Spots.FirstOrDefault(m=>m.SpotModel.Spot.Id == spotId);
@@ -160,15 +156,15 @@
         if(spot is null)
             return Task.CompletedTask;
 
-        List<DbModels.Offer>? spotOffers = null; 
+        List<DbModels.Offer> spotOffers = []; 
 
         // Issuer. Ale mozemy miec ta dane rowniez w SpotUiRespond
-        if(IsSpotCreator(userDataProvider?.Id, spot.SpotModel.Spot.UserId))
+        if(_userService.IsSpotCreator(userDataProvider!.Id, spot.SpotModel.Spot.UserId))
             spotOffers = spot.SpotModel.Offers;
         else
-            spotOffers = spot.SpotModel.Offers?.Where(m=>m.UserId == userDataProvider!.Id).ToList();
+            spotOffers = [.. spot.SpotModel.Offers.Where(m=>m.UserId == userDataProvider!.Id)];
 
-        if(spotOffers is not null && spotOffers.Count > 0)
+        if(spotOffers.Count > 1)
         {
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
             var parameters = new DialogParameters<Dialog>();
@@ -352,7 +348,7 @@
                                     Console.WriteLine($"Current status: {currentStatus}, userPlacedTheBid: {userPlacedTheBid}");
                                     if(currentStatus == Status.Spot.Deleted ||
                                         ((userPlacedTheBid is null || userPlacedTheBid == false) &&
-                                        !IsSpotCreator(userDataProvider?.Id, signal.SpotUiRespond.SpotModel.Spot.UserId))
+                                        !_userService.IsSpotCreator(userDataProvider!.Id, signal.SpotUiRespond.SpotModel.Spot.UserId))
                                     )
                                         Spots.Remove(spot);
                                     else
@@ -380,14 +376,15 @@
                             }
                             break;
                         case SignalType.OfferReject:
-                            if (signal.SpotStatusUIRespond is not null)
+                            if (signal.SpotUiRespond is not null)
                             {
                                 Console.WriteLine("offer reject signal");
-                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotStatusUIRespond.SpotId);
+                                var spot = Spots.FirstOrDefault(s => s.SpotModel.Spot.Id == signal.SpotUiRespond.SpotModel.Spot.Id);
                                 if (spot is not null)
                                 {
-                                    //Chodzi o to ze jak pojawai sie jakkolwiek oferta to moze zmienic sie StatusUIComponent (ostatnia oferta)
-                                    spot.StatusUIRespond = signal.SpotStatusUIRespond;
+                                    spot.StatusUIRespond = signal.SpotUiRespond.StatusUIRespond;
+                                    spot.SpotButtons = signal.SpotUiRespond.SpotButtons;
+                                    spot.SpotModel = signal.SpotUiRespond.SpotModel;
                                 } 
                             }
                             break;

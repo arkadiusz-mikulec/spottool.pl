@@ -2,6 +2,7 @@ using FastEndpoints;
 using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Offers.Reject;
@@ -10,7 +11,8 @@ public record RejectOfferRespond(string? ErrorMsg = null, int StatusCode = Statu
 public record RejectOfferCommand(Guid OfferId, Guid CreateByUserId, Guid CreatedForUserId, string? Reason = null) : ICommand<RejectOfferRespond>;
 public class RejectOfferHandler(IDocumentSession _session,
     SpotDistribution _spotDistribution,
-    SpotService _spotService) : ICommandHandler<RejectOfferCommand, RejectOfferRespond>
+    SpotService _spotService,
+    OfferService _offerService) : ICommandHandler<RejectOfferCommand, RejectOfferRespond>
 {
     public async Task<RejectOfferRespond> ExecuteAsync(RejectOfferCommand command, CancellationToken ct)
     {
@@ -30,7 +32,7 @@ public class RejectOfferHandler(IDocumentSession _session,
         {
             spot.CurrentStatus = Status.Spot.Ended;
 
-            //SetOferStatusRejectedAndReson(offer, command.Reason);
+            SetOferStatusRejectedAndReson(offer, command.Reason);
 
             _session.Store(spot);
             _session.Store(new DbModels.SpotStatusHistory
@@ -45,10 +47,7 @@ public class RejectOfferHandler(IDocumentSession _session,
         _session.Store(offer);
         await _session.SaveChangesAsync(ct);
 
-        var offers = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            .ToAsyncEnumerable(ct)
-            .ToListAsync(ct);
+        var offers = await _offerService.GetLastOffersForSpotAsync(spot, ct);
 
         SpotModel spotModel = new (spot, offers, 
             await _spotService.GetSpotGroups(spot.Id, ct),

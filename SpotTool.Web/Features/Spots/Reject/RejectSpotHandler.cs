@@ -2,6 +2,7 @@ using FastEndpoints;
 using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.Reject;
@@ -11,7 +12,8 @@ public record RejectSpotCommand(Guid SpotId) : ICommand<RejectSpotRespond>;
 public class RejectSpotHandler(
     IDocumentSession _session,
     SpotDistribution _spotDistribution,
-    SpotService _spotService) : ICommandHandler<RejectSpotCommand, RejectSpotRespond>
+    SpotService _spotService,
+    OfferService _offerService) : ICommandHandler<RejectSpotCommand, RejectSpotRespond>
 {
     public async Task<RejectSpotRespond> ExecuteAsync(RejectSpotCommand command, CancellationToken ct)
     {
@@ -46,14 +48,9 @@ public class RejectSpotHandler(
 
         await _session.SaveChangesAsync(ct);
 
-        var offers = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            .ToAsyncEnumerable(ct)
-            .ToListAsync(ct);
-
         var spotModel = new SpotModel(
             spot, 
-            offers, 
+            await _offerService.GetAllOffersForSpot(spot, ct),
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct)
         );

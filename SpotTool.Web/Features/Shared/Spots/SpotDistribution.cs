@@ -1,14 +1,16 @@
+using FastExpressionCompiler.ImTools;
 using SpotTool.Web.Contracts;
 using SpotTool.Web.Contracts.UI.Spot;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Types;
 using SpotTool.Web.Features.Shared.Channels;
+using SpotTool.Web.Features.Users;
 using static SpotTool.Web.Features.Shared.Channels.SpotChannelManager;
 
 
 namespace SpotTool.Web.Features.Shared.Spots;
 
-public class SpotDistribution(SpotChannelManager _spotChannelManager)
+public class SpotDistribution(SpotChannelManager _spotChannelManager, IServiceProvider _serviceProvider)
 {
     private readonly string _serviceName = "SpotDistribution";
     // Wspólna, prywatna metoda dystrybuująca sygnały do właściwych kanałów personalnych
@@ -43,7 +45,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(userSubscription is null)
             return;
 
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? [], _serviceProvider);
         if(sendSignal)
         {
             var spotUiRespond = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
@@ -76,7 +78,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(userSubscription is null)
             return;
 
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? [], _serviceProvider);
         if(sendSignal)
         {
             var spotUiRespond = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
@@ -109,7 +111,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(userSubscription is null)
             return;
 
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? [], _serviceProvider);
         if(sendSignal)
         {
             //Nie musze budowac calego modelu zeby przeslac tylko deadlina update!
@@ -120,6 +122,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
                 _spotChannelManager.Unsubscribe(userSubscription.UserId);
         }
     }
+    
     public Task SendSpotStatusToAuthorizedUsers(SpotModel spotModel)
     {
         try
@@ -142,7 +145,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(userSubscription is null)
             return;
         
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? [], _serviceProvider);
         if(sendSignal)
         {
             var signal = new SpotSignal(
@@ -158,7 +161,22 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         }
     }
 
-//Not checked
+    public Task SendNegotiationEndsToIssuerAndBidder(SpotModel spotModel, Guid[] usersId)
+    {
+        try
+        {
+            foreach (var userId in usersId)
+            {
+                var userData = _spotChannelManager.GetUserSubscriptionData(userId);
+                SendSpotStatusToUser(spotModel, userData);
+            }    
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"[Exception]. SpotDistributor.SendNegotiationEndsToIssuerAndBidder. Msg: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
     public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel, DbModels.Offer? offer)
     {
         string methodName = "SendOfferCreatedToAuthorizedUsers";
@@ -180,7 +198,7 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
         if(userSubscription is null)
             return;
 
-        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? []);
+        var (sendSignal, userRole) = SendTheSignal(spotModel, userSubscription, userSubscription.CarrierGroups ?? [], _serviceProvider);
         if(sendSignal)
         {
             //var spotStatusUi = new SpotStatusUIRespond(spotModel.Spot.Id, userSubscription.UserId, spotModel.Spot.CurrentStatus, userRole, spotModel.Offers);
@@ -233,33 +251,37 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager)
             spotChannelManager.Unsubscribe(userSubscription.UserId);
     }
 
-    private static (bool sendSignal, Role.User userRole) SendTheSignal(SpotModel spotModel, UserSubscription userSubscription, List<Guid> carrierGroup)
+    private static (bool sendSignal, Role.User userRole) SendTheSignal(SpotModel spotModel, UserSubscription userSubscription, List<Guid> carrierGroup,
+        IServiceProvider serviceProvider)
     {
+        using var scope = serviceProvider.CreateScope();
+        var userService = scope.ServiceProvider.GetRequiredService<UserService>();
+
         bool sendSignal = false;
         Role.User roleForThisSpot = Role.User.Bidder;
         
-        if(IsSpotCreator(userSubscription.UserId, spotModel.Spot.UserId))
+        if(userService.IsSpotCreator(userSubscription.UserId, spotModel.Spot.UserId))
         {
             sendSignal = true;
             roleForThisSpot = Role.User.Issuer;
         }
         else
         {
-            if(CarrierHasAccess(userSubscription.UserId, spotModel.GroupsAssignedToSpot ?? [], carrierGroup, spotModel.UsersExcludedFromSpot ?? []))
+            if(userService.CarrierHasAccess(userSubscription.UserId, spotModel.GroupsAssignedToSpot ?? [], carrierGroup, spotModel.UsersExcludedFromSpot ?? []))
                 sendSignal = true;
         }
         return new (sendSignal, roleForThisSpot);
     }
 
-    private static bool IsSpotCreator(Guid channelUserId, Guid spotUserId)
-    {
-        return channelUserId == spotUserId;
-    }
-    private static bool CarrierHasAccess(Guid userId, List<Guid> groupsAssignedToSpot, List<Guid> carrierGroups, List<Guid> usersExcluded)
-    {
-        bool isGlobal = groupsAssignedToSpot.Count == 0; 
-        return isGlobal || carrierGroups.Intersect(groupsAssignedToSpot).Any() || !usersExcluded.Contains(userId);    
-    }
+    // private static bool IsSpotCreator(Guid channelUserId, Guid spotUserId)
+    // {
+    //     return channelUserId == spotUserId;
+    // }
+    // private static bool CarrierHasAccess(Guid userId, List<Guid> groupsAssignedToSpot, List<Guid> carrierGroups, List<Guid> usersExcluded)
+    // {
+    //     bool isGlobal = groupsAssignedToSpot.Count == 0; 
+    //     return isGlobal || carrierGroups.Intersect(groupsAssignedToSpot).Any() || !usersExcluded.Contains(userId);    
+    // }
     // Definicje struktur danych wewnątrz klasy managementu dla lepszej enkapsulacji
     //public record SpotInitModel(Guid connectedUserId, )
  

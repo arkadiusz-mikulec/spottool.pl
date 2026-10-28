@@ -5,11 +5,16 @@ using Marten.Patching;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Offers.Create;
 
 public record CreateOfferRespond(string? ErrorMsg = null, bool IsError = true, Guid? OfferId = null);
+
+public record CreateOfferCommand(Guid SpotId, Guid CreateByUserId, Guid CreateForUserId, decimal Value, 
+    Currency.Code? CurrencyCode, string? Remark, DateTimeOffset? ValidTill) : ICommand<CreateOfferRespond>;
+
 
 public class CreateOfferHandler(
     IDocumentSession _session, 
@@ -17,7 +22,7 @@ public class CreateOfferHandler(
     IDateTimeProvider _dateTimeProvider,
     SpotService _spotService,
     Channel<Guid> _wakeupChannel,
-    IConfiguration _appConfig) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
+    OfferService _offerService) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
 {
     public async Task<CreateOfferRespond> ExecuteAsync(CreateOfferCommand req, CancellationToken ct)
     {
@@ -39,7 +44,6 @@ public class CreateOfferHandler(
         {
             offerStatus = Status.Offer.ToNegotiation;
             spot.CurrentStatus = Status.Spot.Negotiation;
-            //spot.NegotiationDeadLine = req.ValidTill;
 
             createdByUser = await _session.LoadAsync<DbModels.User>(req.CreateByUserId, ct);
             if(createdByUser is null)
@@ -49,10 +53,24 @@ public class CreateOfferHandler(
         {
             offerStatus = Status.Offer.Negotiated;
 
-            //If allow ony one means that this is #1 one and the last
-            // and we need to cancel the spot immediatly
-            bool allowOnlyOneNegotiation = Convert.ToBoolean(_appConfig["AppSettings:NegotiationSettings:AllowOnlyOneAtTheTime"]);
-            if(allowOnlyOneNegotiation)
+            var offersDuringNegotiation = await _session.Query<DbModels.Offer>()
+                .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.ToNegotiation)
+                .ToListAsync(ct);
+            
+            if(offersDuringNegotiation is null || offersDuringNegotiation.Count == 0)
+                return new CreateOfferRespond("offersDuringNegotiation was not found");
+
+            var offerToReject = offersDuringNegotiation.FirstOrDefault(m=>m.UserId == req.CreateForUserId);
+            if(offerToReject is null)
+                return new CreateOfferRespond("Offer To Reject was not found");
+
+            offerToReject.Status = Status.Offer.Rejected;
+            _session.Store(offerToReject);
+            //await _session.SaveChangesAsync(ct);
+
+            //Jeżeli była tylko jedna/ostatnia to mozemy zamknac spot
+            //bo po zapisaniu nie bedzie juz ofert ze statusem 'ToNegotiation'
+            if(offersDuringNegotiation.Count == 1)
                 spot.CurrentStatus = Status.Spot.Ended;
         }
         else
@@ -61,20 +79,20 @@ public class CreateOfferHandler(
         if(!CanAcceptOffer(spot.CurrentStatus, prevSpotStatus, spot.DeadLine, _dateTimeProvider.Now()))
             return new CreateOfferRespond($"Offer cannot be accepted preStatus: {prevSpotStatus}");
 
-        var spotOffers = await _session.Query<DbModels.Offer>()
+        var minOffer = await _session.Query<DbModels.Offer>()
             .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
             .OrderBy(m=>m.Value)
-            .ToListAsync(ct);
-            
-        decimal minOfferValue = req.Value;
-        DbModels.Offer? minOffer = spotOffers.MinBy(m=>m.Value);
+            .FirstOrDefaultAsync(ct);
+        
 
+        decimal minOfferValue = req.Value;
         if(minOffer is not null)
             minOfferValue = minOffer.Value < req.Value ? minOffer.Value : req.Value;
-        
+
         if(spot.CurrentStatus == Status.Spot.Bidding && prevSpotStatus == Status.Spot.Bidding)
         {
-            var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. spotOffers.Where(m=>m.Value > req.Value)]);
+            var lastOffers = await _offerService.GetLastOffersForSpotAsync(spot, ct);
+            var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. lastOffers.Where(m=>m.Value > req.Value)]);
             UpdateOffers(_session, offersToUpdate);
         }
 
@@ -117,14 +135,9 @@ public class CreateOfferHandler(
         
         await _session.SaveChangesAsync(ct);
         
-        spotOffers = await _session.Query<DbModels.Offer>()
-            .Where(m=>m.SpotId == spot.Id && m.Status != Status.Offer.Deleted)
-            .OrderBy(m=>m.Value)
-            .ToListAsync(ct);
-            
         var spotModel = new SpotModel(
             spot, 
-            [.. spotOffers],
+            await _offerService.GetLastOffersForSpotAsync(spot, ct),
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct) 
         );

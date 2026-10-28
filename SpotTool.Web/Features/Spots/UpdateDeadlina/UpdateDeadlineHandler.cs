@@ -4,6 +4,7 @@ using Marten;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Offers;
 using SpotTool.Web.Features.Shared.Spots;
 
 namespace SpotTool.Web.Features.Spots.UpdateDeadlina;
@@ -15,7 +16,8 @@ public class UpdateDeadlineHandler(IDocumentSession _session,
     SpotDistribution _spotDistribution,
     Channel<Guid> _updateChannel,
     SpotService _spotService,
-    IDateTimeProvider _dateTimeProvider) : ICommandHandler<UpdateDeadlineCommand, UpdateDeadlineRespond>
+    IDateTimeProvider _dateTimeProvider,
+    OfferService _offerService) : ICommandHandler<UpdateDeadlineCommand, UpdateDeadlineRespond>
 {
     public async Task<UpdateDeadlineRespond> ExecuteAsync(UpdateDeadlineCommand command, CancellationToken ct)
     {
@@ -32,7 +34,9 @@ public class UpdateDeadlineHandler(IDocumentSession _session,
                            
         await _session.SaveChangesAsync(ct);
 
-        var spotModel = new SpotModel(spot, null,
+        var spotModel = new SpotModel(
+            spot, 
+            await _offerService.GetLastOffersForSpotAsync(spot, ct),
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct)
         );

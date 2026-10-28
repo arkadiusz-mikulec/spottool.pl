@@ -7,7 +7,7 @@ namespace SpotTool.Web.Contracts.UI.Spot;
 public class SpotUIRespond
 {
     public SpotUIRespond(SpotModel spotModel, Guid UserId, Role.User userRoleForThisSpot)
-{
+    {
         SpotModel = spotModel;
         StatusUIRespond = new SpotStatusUIRespond(spotModel.Spot.Id, UserId, spotModel.Spot.CurrentStatus, userRoleForThisSpot, spotModel.Offers);
             
@@ -16,7 +16,11 @@ public class SpotUIRespond
             if(spotModel.Spot.CurrentStatus == Status.Spot.Ok || spotModel.Spot.CurrentStatus == Status.Spot.Bidding)
                 SpotButtons.Add(Buttons.AddOfferButton());
             else if(spotModel.Spot.CurrentStatus == Status.Spot.Negotiation)
-                SpotButtons.Add(Buttons.RejectOfferButton());
+            {
+                var negOfferExist = spotModel.Offers.Any(m=>m.Status == Status.Offer.ToNegotiation && m.CreatedForUser.Id == UserId);
+                if(negOfferExist)
+                    SpotButtons.AddRange([Buttons.AddOfferButton(), Buttons.RejectOfferButton()]);
+            }
             else
              SpotButtons = [];
         }
@@ -51,6 +55,7 @@ public class SpotUIRespond
     public SpotStatusUIRespond StatusUIRespond { get; set; }
     //Button to statyczna klasa
     public List<Button> SpotButtons {get; set;} = [];
+    public List<Button> SpotStatusButtons {get; set;} = [];
 }
 
 public enum ButtonAction
@@ -112,7 +117,8 @@ public class Button
     //public EventCallback Callback {get; set;}
 }
 
-public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatus, Role.User UserRole, List<DbModels.Offer>? Offers)
+public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatus, Role.User UserRole, 
+    List<DbModels.Offer>? Offers)
 { 
     public Guid SpotId {get;} = SpotId;
     public Status.Spot CurrentSpotStatus { get; } = SpotStatus;
@@ -177,8 +183,8 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                 case Status.Spot.Ended:
                 {
                     string statusText = CurrentSpotStatus == Status.Spot.Ended ? $"{CurrentSpotStatus}".ToUpper() : "";
-                    var carrierMinOffer = Offers?.Where(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId).MinBy(m=>m.Value);
-                    if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                    var carrierMinOffer = Offers?.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId);
+                    if(carrierMinOffer is not null)
                     {
                         textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
                         statusInfo = $"{statusText} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]";
@@ -201,8 +207,8 @@ public class SpotStatusUIRespond(Guid SpotId, Guid UserId, Status.Spot SpotStatu
                     }
                     else
                     {
-                        var carrierMinOffer = Offers?.Where(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId).MinBy(m=>m.Value);
-                        if(carrierMinOffer?.CreatedForUser.Id == UserId)
+                        var carrierMinOffer = Offers?.FirstOrDefault(m=>m.CreatedForUser.Id == UserId && m.CreatedByUser.Id == UserId);
+                        if(carrierMinOffer is not null)
                         {
                             textStyle = carrierMinOffer?.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "";
                             statusInfo = $"{Status.Spot.Ended} {carrierMinOffer?.Value} [{carrierMinOffer?.CurrencyCode}]".ToUpper();

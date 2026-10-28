@@ -14,8 +14,6 @@ namespace SpotTool.Web.Features.Offers.Create;
 //CreateOfferCommand wykorzystawany w Handlerze.
 //Gdyby były potrzeba dodatkowe pola to w API mozna je dodac wowczas rodzielamy Command od Reqest
 //Ale tak długo jak Command i Request maja takie same pola mozna wykorzystac obiekt w obu miejscach
-public record CreateOfferCommand(Guid SpotId, Guid CreateByUserId, Guid CreateForUserId, decimal Value, 
-    Currency.Code? CurrencyCode, string? Remark, DateTimeOffset? ValidTill) : ICommand<CreateOfferRespond>;
 
 //Http respond
 public record Response(Guid OfferId);
