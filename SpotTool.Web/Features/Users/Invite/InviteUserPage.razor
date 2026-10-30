@@ -1,0 +1,83 @@
+@page "/users/invite"
+@using FastEndpoints
+@using JasperFx.CodeGeneration.Frames
+@using Marten
+@using Microsoft.JSInterop
+@using MudBlazor
+@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Shared.Channels
+@using SpotTool.Web.Features.Shared.Spots
+@using SpotTool.Web.Features.Users
+
+@implements IDisposable
+@inject IDocumentSession _session
+@inject IDateTimeProvider _dateTimeProvider
+@inject UserService _userService
+@inject NavigationManager _navi
+@inject IConfiguration _appConfig
+@inject ISnackbar Snackbar
+
+
+<p>@userDataProvider?.Email with offset @userDataProvider?.userOffset.ToString()</p><br/>
+
+<MudTextField @bind-Value="emails" Label="List of carriers" HelperText="Separate email by ';'" Variant="Variant.Outlined" /><br/>
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="InviteBiddersAsync" Disabled="@inviteBtnDisabled">Invite new carriers</MudButton> 
+<p style="color: red;"><b>@errors</b></p><br/><br/>
+
+@code {
+    private CancellationTokenSource cts = new CancellationTokenSource();
+    int currentUserId = 1;
+    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, List<Role.User> Roles, Status.User Status);
+    UserProvider? userDataProvider = null;
+    bool inviteBtnDisabled = true;
+    string emails {get; set;} = string.Empty; 
+    string errors = string.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        (string, TimeSpan) currentUser = 
+            (currentUserId == 1 ? 
+                ("arkadiusz.mikulec@gmail.com", TimeSpan.FromMinutes(120)) : 
+            currentUserId == 2 ? 
+                ("amikulec@sostmeier.pl", TimeSpan.FromMinutes(60)) : ("biuro@e-site.pl", TimeSpan.Zero));
+
+        //To bedzie kol na stronie logowanie
+        var user = await _userService.GetUserByEmailAsync(currentUser.Item1, cts.Token);
+
+        userDataProvider = new UserProvider(
+            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Roles, user.Status);
+
+        if(userDataProvider.Roles.Contains(Role.User.Issuer))
+            inviteBtnDisabled = false;
+        else
+            inviteBtnDisabled = true;
+    }
+
+    async Task InviteBiddersAsync()
+    {
+        string[] carriers = emails.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        if(carriers.Length > 0)
+        {
+            var inviteBiddersResult = await new InviteUsersCommand(carriers).ExecuteAsync(cts.Token);
+            if(inviteBiddersResult.IsError)
+                errors = $"Invite users error: {inviteBiddersResult.ErrorMsg}";
+            else
+                Snackbar.Add("All carriers was invited.", Severity.Success);
+        }
+        else
+            errors = "List of new carriers is empty!";
+            
+    }
+    public void Dispose()
+    {
+        if (cts is { IsCancellationRequested: false })
+        {
+            try
+            {
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException) { /* Ignoruj */ }
+        }
+        cts?.Dispose();
+    }
+}
