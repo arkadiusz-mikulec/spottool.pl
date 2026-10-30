@@ -24,7 +24,7 @@ public class ApproveSpotHandler(IDocumentSession _session,
         if(spot is null)
             return new ApproveSpotRespond("Spot not found");
         
-        if(!CanBeApproved(spot, _dateTimeProvider.Now()))
+        if(!CanBeApproved(spot.CurrentStatus))
             return new ApproveSpotRespond("Spot cannot be approved becasue is after deadlina or in wrogn status");
     
         
@@ -41,7 +41,7 @@ public class ApproveSpotHandler(IDocumentSession _session,
 
         var spotModel = new SpotModel(
             spot, 
-            null, 
+            [], 
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct)
         );
@@ -51,10 +51,8 @@ public class ApproveSpotHandler(IDocumentSession _session,
         return new ApproveSpotRespond(IsError: false);
     }
 
-    private static bool CanBeApproved(DbModels.Spot spot, DateTimeOffset currentDateTime)
+    private static bool CanBeApproved(Status.Spot spotStatus)
     {
-        if(spot.DeadLine >= currentDateTime && spot.CurrentStatus == Status.Spot.NotConfirmed)
-            return true;
-        return false;
+        return spotStatus == Status.Spot.NotConfirmed;
     }
 }

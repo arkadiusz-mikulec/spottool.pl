@@ -53,7 +53,7 @@ public class CreateSpotHandler(
         
         var spotModel = new SpotModel(
             spot, 
-            null,
+            [],
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct)
         );

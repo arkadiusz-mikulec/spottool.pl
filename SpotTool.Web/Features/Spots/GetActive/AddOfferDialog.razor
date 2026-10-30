@@ -1,0 +1,79 @@
+@using FastEndpoints
+@using MudBlazor
+@using SpotTool.Web.Domain
+@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Offers.Create
+
+@inject IDateTimeProvider _dateTimeProvider
+
+
+<MudDialog>
+    <TitleContent>
+        @MudDialog?.Title
+    </TitleContent>
+    <DialogContent>
+        <MudNumericField Immediate="false" 
+            Label="@string.Format("Your offer in [{0}]", CurrencyCode)" 
+            Format="N2" T="decimal" 
+            @bind-Value="offerValue" /> 
+        <br/>
+        <MudTextField T="string"
+            Label="Comment"
+            Variant="Variant.Text"
+            MaxLines="10"
+            Sizing="InputSizing.Auto"
+            Placeholder="Insert comment to the offer if you want" 
+            @bind-Value="offerRemark" Typo="Typo.body2"/> 
+        <br/><br/>
+
+        <p style="color: red;"><b>@errors</b></p>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="(() => AddOfferAsync(SpotId))">Add offer</MudButton> <br/>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public DbModels.Offer? LastOffer { get; set; } = null;
+
+    [Parameter]
+    public TimeSpan? UserOffset {get; set;} = null;
+    
+    [Parameter]
+    public Guid UserId {get; set;}
+    [Parameter]
+    public Guid SpotId {get; set;}
+    [Parameter]
+    public Currency.Code CurrencyCode {get; set;} = Currency.Code.EUR;
+    
+
+    decimal offerValue {get; set;} = 0; 
+    string? offerRemark {get; set;} = null;
+    string errors {get; set;} = string.Empty;
+    private void Cancel() => MudDialog?.Cancel();
+
+
+    async Task AddOfferAsync(Guid? spotId)
+    {
+        if(spotId is not null && offerValue > 0)
+        {
+            var createOfferResult = await new CreateOfferCommand(
+                (Guid)spotId, UserId, UserId, offerValue, CurrencyCode,
+                offerRemark, null
+            ).ExecuteAsync();
+
+            if(createOfferResult.IsError)
+                Console.WriteLine($"Error: addOffer - {createOfferResult.ErrorMsg}");
+            else
+                Cancel();
+        }
+        else
+            errors = $"Offer need to be greater then 0[{CurrencyCode}]!";
+    }
+}

@@ -32,7 +32,7 @@ public class RejectOfferHandler(IDocumentSession _session,
         {
             spot.CurrentStatus = Status.Spot.Ended;
 
-            SetOferStatusRejectedAndReson(offer, command.Reason);
+            //SetOferStatusRejectedAndReson(offer, command.Reason);
 
             _session.Store(spot);
             _session.Store(new DbModels.SpotStatusHistory
@@ -41,19 +41,19 @@ public class RejectOfferHandler(IDocumentSession _session,
                 SpotStatus = Status.Spot.Ended
             });
         }
-        else
-            SetOferStatusRejectedAndReson(offer, command.Reason);
+        //else
+        SetOferStatusRejectedAndReson(offer, command.Reason);
             
         _session.Store(offer);
         await _session.SaveChangesAsync(ct);
 
-        var offers = await _offerService.GetLastOffersForSpotAsync(spot, ct);
-
-        SpotModel spotModel = new (spot, offers, 
+        SpotModel spotModel = new (
+            spot, 
+            await _offerService.GetLastOffersForSpotAsync(spot, ct), 
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct));
             
-        _spotDistribution.SendOfferRejectedToIssuerAndBidder(spotModel, offer);
+        _ = _spotDistribution.SendOfferRejectedToIssuerAndBidder(spotModel, offer, [spot.UserId, offer.CreatedForUser.Id]);
 
         return new RejectOfferRespond(IsError: false, StatusCode: StatusCodes.Status200OK);
     }

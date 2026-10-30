@@ -177,6 +177,26 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
         }
         return Task.CompletedTask;
     }
+
+    
+    public Task SendNegotiationOfferCreatedToIssuerAndBidder(SpotModel spotModel, DbModels.Offer? offer, Guid[] usersId)
+    {
+        string methodName = "SendOfferCreatedToAuthorizedUsers";
+        try
+        {
+            foreach (var userId in usersId)
+            {
+                var userData = _spotChannelManager.GetUserSubscriptionData(userId);
+                SendOfferCreatedToUser(spotModel, offer, userData);
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION]: {_serviceName}->{methodName}. Msg: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
     public Task SendOfferCreatedToAuthorizedUsers(SpotModel spotModel, DbModels.Offer? offer)
     {
         string methodName = "SendOfferCreatedToAuthorizedUsers";
@@ -210,45 +230,22 @@ public class SpotDistribution(SpotChannelManager _spotChannelManager, IServicePr
         }
     }
 
-    public void SendOfferRejectedToIssuerAndBidder(SpotModel spotModel, DbModels.Offer offer)
+    public Task SendOfferRejectedToIssuerAndBidder(SpotModel spotModel, DbModels.Offer offer, Guid[] usersId)
     {
-        Guid spotUserId = spotModel.Spot.UserId;
-        //bool isNormalOffer = offer.CreatedByUser.Id.Equals(offer.CreatedForUser.Id);
-
-        var issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
-        var bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id); 
-
-        SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
-        SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
-
-        // if(isNormalOffer)
-        // {
-        //     issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
-        //     bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id);
-
-        //     SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
-        //     SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
-        // }
-        // else
-        // {
-        //     issuer = _spotChannelManager.GetUserSubscriptionData(spotUserId);
-        //     bidder = _spotChannelManager.GetUserSubscriptionData(offer.CreatedForUser.Id);
-
-        //     SetSpotUIRespondAndSendSignal(spotModel, issuer, Role.User.Issuer, SignalType.OfferReject, _spotChannelManager);
-        //     SetSpotUIRespondAndSendSignal(spotModel, bidder, Role.User.Bidder, SignalType.OfferReject, _spotChannelManager);
-        // }
-        
-    }
-    private static void SetSpotUIRespondAndSendSignal(SpotModel spotModel, UserSubscription? userSubscription, Role.User userRole, SignalType signalType, SpotChannelManager spotChannelManager)
-    {
-        if(userSubscription is null)
-            return;
-
-        var spotUi = new SpotUIRespond(spotModel, userSubscription.UserId, userRole);
-        var signal = new SpotSignal(signalType, spotUi, null, null, null); 
-
-        if(!userSubscription.Writer.TryWrite(signal))
-            spotChannelManager.Unsubscribe(userSubscription.UserId);
+        string methodName = "SendOfferRejectedToIssuerAndBidder";
+        try
+        {
+            foreach (var userId in usersId)
+            {
+                var userData = _spotChannelManager.GetUserSubscriptionData(userId);
+                SendOfferCreatedToUser(spotModel, offer, userData);
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION]: {_serviceName}->{methodName}. Msg: {ex.Message}");
+        }
+        return Task.CompletedTask;
     }
 
     private static (bool sendSignal, Role.User userRole) SendTheSignal(SpotModel spotModel, UserSubscription userSubscription, List<Guid> carrierGroup,

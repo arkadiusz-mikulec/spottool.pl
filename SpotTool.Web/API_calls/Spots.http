@@ -1,5 +1,5 @@
 @host = http://localhost:5017
-@spotId = 01a167ea-ff4a-7b69-b7e5-411867ef3893
+@spotId = 01a17cce-3160-74f1-9841-592963b4071a
 
 ### Spot create from TMS
 POST {{host}}/api/v1/integrations/spots
@@ -39,9 +39,9 @@ Content-Type: application/json
 
 {
     "SpotId": "{{spotId}}",
-    "CreateByUserId": "01a14858-e303-73fb-83d3-0ca37816ce81",
-    "CreateForUserId": "01a14858-e303-73fb-83d3-0ca37816ce81",
-    "Value": 900
+    "CreateByUserId": "01a16423-1b77-74a2-ba9c-e8a68d2ab280",
+    "CreateForUserId": "01a16423-1b77-74a2-ba9c-e8a68d2ab280",
+    "Value": 50
 }
 
 ### Add offer by amikulec

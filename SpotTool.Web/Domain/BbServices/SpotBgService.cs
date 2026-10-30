@@ -182,6 +182,8 @@ public class SpotBgService : BackgroundService
             return (true, "Offer not found", null);
 
         offer.Status = Status.Offer.Rejected;
+        offer.RejectReson = $"Negotiation deadline reached. Bidder: {offer.CreatedForUser.PersonDetail.Email} has neither reject negotiation offer nor add new one";
+        
         session.Store(offer);
         await session.SaveChangesAsync(ct);
 

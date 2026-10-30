@@ -19,8 +19,6 @@ public class OfferService(IQuerySession _session)
         if(spot.BiddersId is null)
             return [];
 
-        //var allBidderIds = spot.BiddersId ?? Enumerable.Empty<Guid>(); //Selec(s => s.BiddersId ?? Enumerable.Empty<Guid>()).Distinct().ToArray();
-
         // ========================================================================
         // 2. JEDNE SZYBKIE ZAPYTANIE PO LEKKIE METADANE (Wszystkie spoty na raz)
         // ========================================================================

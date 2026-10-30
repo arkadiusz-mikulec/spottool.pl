@@ -65,6 +65,8 @@ public class CreateOfferHandler(
                 return new CreateOfferRespond("Offer To Reject was not found");
 
             offerToReject.Status = Status.Offer.Rejected;
+            offerToReject.RejectReson = $"Bidder: {createdForUser.ContactDetails.Email} added new offer: {req.Value} instead of accept negotiation offer: {offerToReject.Value}";
+
             _session.Store(offerToReject);
             //await _session.SaveChangesAsync(ct);
 
@@ -141,12 +143,16 @@ public class CreateOfferHandler(
             await _spotService.GetSpotGroups(spot.Id, ct),
             await _spotService.GetUsersExcluded(spot.Id, ct) 
         );
-        _ = _spotDistributor.SendOfferCreatedToAuthorizedUsers(spotModel, offer);
 
         if(offer.Status == Status.Offer.ToNegotiation)
-            _wakeupChannel.Writer.TryWrite(spot.Id);   
+            _wakeupChannel.Writer.TryWrite(spot.Id);  
 
-        return new CreateOfferRespond(IsError: false, OfferId: id);     
+        if(offerStatus == Status.Offer.Negotiated || offerStatus == Status.Offer.ToNegotiation)
+            _ = _spotDistributor.SendNegotiationOfferCreatedToIssuerAndBidder(spotModel, offer, [spot.UserId, offer.CreatedForUser.Id]);
+        else
+            _ = _spotDistributor.SendOfferCreatedToAuthorizedUsers(spotModel, offer);
+
+        return new CreateOfferRespond(IsError: false, OfferId: offer.Id);     
     }
 
     

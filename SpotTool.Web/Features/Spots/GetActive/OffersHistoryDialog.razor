@@ -32,23 +32,31 @@
         <MudTable T="@DbModels.Offer" Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info"
             @bind-SelectedItem="_selectedOffer" RowClassFunc="@SelectedRowClassFunc">
                 <HeaderContent>
-                    <MudTh>Id</MudTh>
-                    <MudTh>Bidder</MudTh>
+                    <MudTh>CreatedAt</MudTh>
+                    <MudTh>Creator</MudTh>
                     <MudTh>Value</MudTh>
-                    <MudTh>Currency</MudTh>
+                    <MudTh>Reject</MudTh>
+                    <MudTh>Remark</MudTh>
                     <MudTh>Status</MudTh>
-                    <MudTh>Valid till</MudTh>
-                    <MudTh>Bid's feedback</MudTh>
+                    <MudTh>Valid-till</MudTh>
+                    <MudTh>Feedback</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Id">@context.Id</MudTd>
-                    <MudTd DataLabel="Bidder">
-                        @(context.Status == Status.Offer.ToNegotiation ? context.CreatedByUser.PersonDetail.Email : context.CreatedForUser.PersonDetail.Email)
+                    <MudTd DataLabel="CreatedAt">@GetDateTimeInUserTime(context.CreatedAt)</MudTd>
+                    <MudTd DataLabel="Creator">
+                        @context.CreatedByUser.PersonDetail.Email
                     </MudTd>
-                    <MudTd DataLabel="Value">@context.Value</MudTd>    
-                    <MudTd DataLabel="Currency">@context.CurrencyCode</MudTd>    
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Valid-till">@GetValidTillInUserTime(context.ValidTill)</MudTd>                   
+                    <MudTd DataLabel="Value" Style="@(context.Status == Status.Offer.Rejected ? "text-decoration: line-through;" : "")">
+                        @string.Format("{0}[{1}]", context.Value.ToString("0.##"), context.CurrencyCode)
+                    </MudTd>
+                    <MudTd DataLabel="Reject">
+                        <MudIconButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" 
+                            OnClick="(() => RejectOfferAsync(context.Id))" 
+                            Icon="@MudBlazor.Icons.Material.Filled.Delete" />
+                    </MudTd>    
+                    <MudTd DataLabel="Remark">@context.Remarks</MudTd>    
+                    <MudTd DataLabel="Status">@string.Format("{0} {1}", context.Status, context.RejectReson is null ? "" : $"({context.RejectReson})")</MudTd>
+                    <MudTd DataLabel="Valid-till">@GetDateTimeInUserTime(context.ValidTill)</MudTd>                   
                     <MudTd DataLabel="Feedback">
                         @{
                             var color = GetOfferColor(@context.ValueStatus);
@@ -73,7 +81,7 @@
         {
             if(SpotStatus == Status.Spot.Negotiation)
             {
-                <MudButton Color="Color.Info" OnClick="RejectOfferAsync">Reject negotiation</MudButton>
+                <MudButton Color="Color.Info" OnClick="(() => RejectOfferAsync(_selectedOffer?.Id))">Reject negotiation</MudButton>
             }
         }
         <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -100,28 +108,29 @@
     DbModels.Offer? _selectedOffer { get; set; }
     int _selectedRowNumber = -1;
 
-
+    private void Cancel() => MudDialog?.Cancel();
     protected override void OnInitialized()
     {
         _selectedOffer = Offers.FirstOrDefault(m=>m.IsWinnerOffer == true);
         Console.WriteLine($"Selected is: {_selectedOffer?.Id}");
     }
 
-    private async Task RejectOfferAsync()
+    private async Task RejectOfferAsync(Guid? offerId)
     {
-        if(_selectedOffer is not null)
+        var offer = Offers.FirstOrDefault(m=>m.Id == offerId);
+        if(offer is not null)
         {
             var rejectOfferCommandResult = await new RejectOfferCommand(
-                    _selectedOffer.Id, 
-                    _selectedOffer.CreatedByUser.Id, 
-                    _selectedOffer.CreatedForUser.Id, 
+                    offer.Id, 
+                    offer.CreatedByUser.Id, 
+                    offer.CreatedForUser.Id, 
                     "Test - reject by carrier from dialog")
                 .ExecuteAsync();
             
             if(rejectOfferCommandResult.IsError)
                 Console.WriteLine($"Error reject offer: {rejectOfferCommandResult.ErrorMsg}");
             else
-                MudDialog?.Close(DialogResult.Ok(true));
+                Cancel(); //MudDialog?.Close(DialogResult.Ok(true));
         }
     }
     private async Task AcceptSpotAsync()
@@ -151,7 +160,7 @@
                 MudDialog?.Close(DialogResult.Ok(true));
         } 
     }
-    private void Cancel() => MudDialog?.Cancel();
+    
 
     MudBlazor.Color GetOfferColor(Status.OfferValue offerValue) => offerValue switch
     {
@@ -178,9 +187,9 @@
         return string.Empty;
     }
 
-    string GetValidTillInUserTime(DateTimeOffset validTill)
+    string GetDateTimeInUserTime(DateTimeOffset dateTimeOffset)
     {
-        return _dateTimeProvider.ToUserLocalTime(validTill, UserOffset ?? TimeSpan.Zero);
+        return _dateTimeProvider.ToUserLocalTime(dateTimeOffset, UserOffset ?? TimeSpan.Zero);
     }
     async Task AddOfferAsync(Guid? spotId)
     {
