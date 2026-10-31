@@ -1,7 +1,49 @@
 ﻿@page "/"
+@using SpotTool.Web.Features.Shared.Cookies
+@using SpotTool.Web.Features.Users
+
+@inject CookieService _cookieService
+@inject NavigationManager _navigation
+@inject UserService _userService
+@inject ISnackbar Snackbar
+@implements IDisposable
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Log in please</h1>
 
-Welcome to your new app.
+<MudTextField @bind-Value="login" Label="Provide email address" HelperText="Separate email by ';'" Variant="Variant.Outlined" /><br/>
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Login">Log in</MudButton> 
+
+@code {
+    private string login {get; set;} = string.Empty;
+    CancellationTokenSource cts = new ();
+
+    async Task Login()
+    {
+        var user = await _userService.GetUserByEmailAsync(login, cts.Token);
+        if(user is null)
+            Snackbar.Add($"User: {login} does not exist", Severity.Error);
+        else
+        {
+            await _cookieService.SetUserEmailAndOffsetCookieAsync(login, 7);
+            _navigation.NavigateTo("spots/active", true);    
+        }
+    }
+
+    public void Dispose()
+    {
+        // Odpinamy subskrypcję stanu, aby zapobiec wyciekom pamięci
+        //_subscription.Dispose();
+
+        if (cts is { IsCancellationRequested: false })
+        {
+            try
+            {
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException) { /* Ignoruj */ }
+        }
+        cts?.Dispose();
+    }
+}

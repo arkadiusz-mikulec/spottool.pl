@@ -1,5 +1,7 @@
 using Marten;
 using SpotTool.Web.Domain;
+using SpotTool.Web.Domain.Types;
+using SpotTool.Web.Features.Shared.Cookies;
 
 namespace SpotTool.Web.Features.Users;
 
@@ -15,6 +17,16 @@ public class UserService(IQuerySession _session)
         return user;
     }
 
+
+    public async Task<UserProvider?> SetUserProviderData(UserEmailAndTimeOffset data, CancellationToken ct)
+    {
+        var user = await GetUserByEmailAsync(data.Email, ct);
+
+        if(user is null)
+            return null;
+
+        return new UserProvider(user.Id, user.ContactDetails.Email, [], data.Offset, user.Roles, user.Status);
+    }
     //Zastanwic sie nad tym gdzie i jak to implementowac
     //Chwilowo tutaj zeby jedna funkcja nie byla rozproszona po całym projekcie
     //Docelowo funkcja bedzie duzo większa jak wprowadzimy BU
@@ -30,3 +42,5 @@ public class UserService(IQuerySession _session)
         return isGlobal || carrierGroups.Intersect(groupsAssignedToSpot).Any() || !usersExcluded.Contains(userId);    
     }
 }
+public record UserProvider(Guid Id, string Email, List<Guid> UserGroups, TimeSpan UserOffset, List<Role.User> Roles, Status.User Status);
+    

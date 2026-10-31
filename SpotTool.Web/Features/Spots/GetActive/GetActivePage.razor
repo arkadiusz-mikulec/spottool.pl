@@ -1,7 +1,6 @@
-﻿@page "/spots/active/{UserId:int}"
+﻿@page "/spots/active"
 @using System.Threading.Channels
 @using FastEndpoints
-@using ImTools
 @using Marten
 @using Microsoft.JSInterop
 @using MudBlazor
@@ -10,18 +9,16 @@
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
-@using SpotTool.Web.Features.Offers.Create
 @using SpotTool.Web.Features.Offers.Reject
 @using SpotTool.Web.Features.Shared.Channels
+@using SpotTool.Web.Features.Shared.Cookies
 @using SpotTool.Web.Features.Shared.Spots
 @using SpotTool.Web.Features.Spots.Approve
 @using SpotTool.Web.Features.Spots.Create
 @using SpotTool.Web.Features.Spots.UpdateDeadlina
 @using SpotTool.Web.Features.Users
-
 @inject SpotService _spotService
 @inject SpotChannelManager _spotChannelMenager
-@* @inject PersistentComponentState ApplicationState *@
 @implements IDisposable
 @inject IDocumentSession _session
 @inject IJSRuntime _jsRuntime
@@ -30,17 +27,9 @@
 @inject NavigationManager _navi
 @inject IConfiguration _appConfig
 @inject IDialogService DialogService
+@inject CookieService _cookieService
 
-
-<MudSelect @bind-Value="@currentUserId">
-    <MudSelectItem Value="1">@("arkadiusz.mikulec@gmail.com")</MudSelectItem>
-    <MudSelectItem Value="2">@("amikulec@sostmeier.pl")</MudSelectItem>
-    <MudSelectItem Value="3">@("biuro@e-site.pl")</MudSelectItem>
-</MudSelect>
-
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateUser">Update</MudButton> 
-
-<p>@userDataProvider?.Email with offset @userDataProvider?.userOffset.ToString()</p>
+<p>@userDataProvider?.Email with offset @userDataProvider?.UserOffset.ToString()</p>
 
 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSpotAsync" Disabled="@createSpotBtnDisabled">Create spot</MudButton> 
 
@@ -66,7 +55,7 @@
                         <MudLink Href="@link">@context.SpotModel.Spot.UserId</MudLink>
                     </MudTd>
                     <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
-                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.userOffset)</MudTd>
+                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.UserOffset)</MudTd>
                     <MudTd DataLabel="Current Status">
                         @{
                             (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
@@ -95,29 +84,46 @@
 </MudGrid>
 
 @code {
-    [Parameter]
-    public int UserId {get; set;} = 1;
     List<SpotUIRespond> Spots { get; set; } = [];
     private CancellationTokenSource cts = new CancellationTokenSource();
-    int currentUserId = 1;
-    record UserProvider(Guid Id, string Email, List<Guid> userGroups, TimeSpan userOffset, List<Role.User> Roles, Status.User Status);
     UserProvider? userDataProvider = null;
     bool loading {  get; set; } = true;
-    bool createSpotBtnDisabled = true;
+    bool createSpotBtnDisabled = true;    
+    UserEmailAndTimeOffset? currentUserFromCookie = null;
+
     protected override async Task OnInitializedAsync()
     {
+        currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
+    }
 
-        (string, TimeSpan) currentUser = 
-            (UserId == 1 ? 
-                ("arkadiusz.mikulec@gmail.com", TimeSpan.FromMinutes(120)) : 
-            UserId == 2 ? 
-                ("amikulec@sostmeier.pl", TimeSpan.FromMinutes(60)) : ("biuro@e-site.pl", TimeSpan.Zero));
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            if(currentUserFromCookie is null)
+            {
+                currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+            }
 
-        //To bedzie kol na stronie logowanie
-        var user = await _userService.GetUserByEmailAsync(currentUser.Item1, cts.Token);
+            if(currentUserFromCookie is null)
+            {
+                _navi.NavigateTo("/");        
+            }
+            else            
+                await InitUserAsync();
+        }
+    }
 
-        userDataProvider = new UserProvider(
-            user!.Id, user.ContactDetails.Email, [],  currentUser.Item2, user.Roles, user.Status);
+    private async Task InitUserAsync()
+    {
+        if(currentUserFromCookie is null)
+            return;
+
+        Console.WriteLine($"InitUserAsync: {currentUserFromCookie}");
+        userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
+
+        if(userDataProvider is null)
+            return; 
 
         Console.WriteLine($"Current user: {userDataProvider.Email}");
 
@@ -126,36 +132,20 @@
         else
             createSpotBtnDisabled = true;
 
-        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles, userDataProvider.userGroups);
+        var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles, userDataProvider.UserGroups);
 
         Spots = await _spotService.InitActiveSpotsAsync(
             userDataProvider.Id,
-            userDataProvider.userOffset,
+            userDataProvider.UserOffset,
             cts.Token
         );
 
         _ = ConsumeSpotChannelsAsync(reader);
         loading = false;
+
+        StateHasChanged();
+            
     }
-
-    @* protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(firstRender)
-        {
-            offsetInMinutes = await _jsRuntime.InvokeAsync<int>("getUserTimezoneOffsetInMinutes");
-
-            if(userDataProvider?.userOffset != TimeSpan.FromMinutes(offsetInMinutes))
-            {
-                userDataProvider = userDataProvider! with { userOffset = TimeSpan.FromMinutes(offsetInMinutes) };
-                Console.WriteLine($"User offset has changed to : {userDataProvider.userOffset}. Page need to be rerender!");  
-                StateHasChanged();    
-            }
-        } 
-        
-        //return base.OnAfterRenderAsync(firstRender);
-    }*@
-
-    
     private Task OpenOfferHistoryDialogAsync(Guid spotId)
     {
         var spot = Spots.FirstOrDefault(m=>m.SpotModel.Spot.Id == spotId);
@@ -178,7 +168,7 @@
             var parameters = new DialogParameters<OffersHistoryDialog>();
 
             parameters.Add(x => x.Offers, [.. spotOffers.OrderBy(m=>m.Value)]);
-            parameters.Add(x => x.UserOffset, userDataProvider?.userOffset);
+            parameters.Add(x => x.UserOffset, userDataProvider?.UserOffset);
             parameters.Add(x=>x.IssuerId, userDataProvider!.Id);
             parameters.Add(x=>x.SpotUserId, spot.SpotModel.Spot.UserId);
             parameters.Add(x=>x.SpotStatus, spot.SpotModel.Spot.CurrentStatus);
@@ -207,7 +197,7 @@
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
         var parameters = new DialogParameters<AddOfferDialog>();
 
-        parameters.Add(x => x.UserOffset, userDataProvider?.userOffset);
+        parameters.Add(x => x.UserOffset, userDataProvider?.UserOffset);
         parameters.Add(x=>x.UserId, userDataProvider!.Id);
         parameters.Add(x=>x.LastOffer, lastOffer);
         parameters.Add(x=>x.SpotId, spotId);
@@ -324,11 +314,7 @@
 
         var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
     }
-    Task UpdateUser()
-    {
-        _navi.NavigateTo($"/spots/active/{currentUserId}", true);
-        return Task.CompletedTask;
-    }
+    
     async Task ConsumeSpotChannelsAsync(ChannelReader<SpotSignal> reader)
     {
         try
@@ -507,6 +493,7 @@
         }
         cts?.Dispose();
         // 3. Sprzątamy połączenie w singletonie przy opuszczeniu strony
-        _spotChannelMenager.Unsubscribe(userDataProvider!.Id);
+        if(userDataProvider is not null)
+            _spotChannelMenager.Unsubscribe(userDataProvider!.Id);
     }
 }

@@ -1,0 +1,13 @@
+@page "/logout"
+@using SpotTool.Web.Features.Shared.Cookies
+
+@inject CookieService _cookieService
+@inject NavigationManager _navigation
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await _cookieService.DeleteUserEmailAndOffsetCookieAsync();
+        _navigation.NavigateTo("/");
+    }
+}

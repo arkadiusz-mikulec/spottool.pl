@@ -11,6 +11,7 @@ using SpotTool.Web.Features.Shared.Channels;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Features.Users;
 using SpotTool.Web.Features.Shared.Offers;
+using SpotTool.Web.Features.Shared.Cookies;
 
 namespace SpotTool.Web;
 
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<SpotService>();
         services.AddScoped<UserService>();
         services.AddScoped<OfferService>();
+        services.AddScoped<CookieService>();
         
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<SpotDistribution>();

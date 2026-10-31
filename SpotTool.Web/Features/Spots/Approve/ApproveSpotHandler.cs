@@ -13,7 +13,6 @@ namespace SpotTool.Web.Features.Spots.Approve;
 public record ApproveSpotRespond(string? ErrorMsg = null, bool IsError = true);
 public record ApproveSpotRequest(Guid SpotId): ICommand<ApproveSpotRespond>;
 public class ApproveSpotHandler(IDocumentSession _session,
-    IDateTimeProvider _dateTimeProvider,
     SpotService _spotService,
     SpotDistribution _spotDistribution,
     Channel<Guid> _wakeupChannel) : ICommandHandler<ApproveSpotRequest, ApproveSpotRespond>
