@@ -1,8 +1,11 @@
-﻿
+﻿@using SpotTool.Web.Domain.Helpers
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@MudBlazor.Icons.Material.Filled.Home">Home</MudNavLink>
     <MudNavLink Href="spots/active" Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.List">Active spots</MudNavLink>
     <MudNavLink Href="users/invite"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Add">Invite carrier</MudNavLink>
+    <MudNavLink Href="@UrlProvider.Monitoring.MonitoringPath"  Match="NavLinkMatch.Prefix" 
+        Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon">@UrlProvider.Monitoring.LinkAndIcon.Value.Text
+    </MudNavLink>
     @* <MudNavGroup Title="Settings" Icon="@MudBlazor.Icons.Material.Filled.Settings" Expanded="false">
         <MudNavLink Href="/users"  Match="NavLinkMatch.Prefix">Users</MudNavLink>
         <MudNavLink Href="/security"  Match="NavLinkMatch.Prefix">Security</MudNavLink>

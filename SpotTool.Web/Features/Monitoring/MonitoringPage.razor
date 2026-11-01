@@ -1,0 +1,248 @@
+@attribute [Route(UrlProvider.Monitoring.MonitoringPathWithUserAndId)]
+
+@using MudBlazor
+@using SpotTool.Web.Domain.Helpers
+@inject IMonitoringHelper _monitoringHelper
+@inject ISnackbar Snackbar
+
+<h4>Monitoring module</h4>
+@if(isDispo)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
+                    <MudTable Items="@usersLinks" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                        <HeaderContent>
+                            <MudTh>USER</MudTh>
+                            <MudTh>LINK</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="USER">
+                                @context.Key
+                            </MudTd>
+                            <MudTd DataLabel="LINK">
+                                <MudLink Href="@context.Value" Target="_blank" Underline="Underline.Always">@context.Value</MudLink>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+        </MudCardContent>
+    </MudCard>
+}
+
+<MudCard>
+    <MudCardContent>
+        @if(isDispo)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="AddMonitoringItems" StartIcon="@MudBlazor.Icons.Material.Filled.Add">
+                Add new positions
+            </MudButton>
+            <br/><br/>
+        }
+        <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
+                    <MudTable T="@MonitoringItem" Items="@data" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                        <HeaderContent>
+                            <MudTh>Order_Id</MudTh>
+                            <MudTh>Contact</MudTh>
+                            <MudTh>Deadline</MudTh>
+                            <MudTh>Route</MudTh>
+                            <MudTh>Current Status</MudTh>
+                            @* <MudTh>Contact phone</MudTh> *@
+                            <MudTh>Operations</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Order_Id">
+                                @{
+                                    string link = $"/{context.id}";
+                                    string pseudoNumber = $"Order_{context.transportOrder}";
+                                }
+                                <MudLink OnClick="(() => ShowHistory(context))">@pseudoNumber</MudLink>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public Guid? user {get; set;}
+    [Parameter]
+    public int? id {get; set;}
+    string? userEmail {get; set;}
+    string disp = "arkadiusz.mikulec@gmail.com";
+    bool isDispo => user is null;
+    List<MonitoringItem> data = [];
+    
+    Dictionary<string, Type> columns { get; set; } = new();
+    Dictionary<string, string> usersLinks {get; set;} = new();
+
+    enum DateKind
+    {
+        loading,
+        delivery,
+        change
+    }
+
+    async Task ShowHistory(MonitoringItem position)
+    {
+        Console.WriteLine($"Position: {position}");
+    }
+    Task RequestGpsPosition(MonitoringItem position)
+    {
+        _monitoringHelper.AddHistoryItem(position.id, new HistoryItem{
+            id = Random.Shared.Next(100, 1000),
+            insertDate = DateTime.Now,
+            info = "GPS send request",
+            _event = "GPS"
+         });
+        
+        _monitoringHelper.AddHistoryItem(position.id, new HistoryItem{
+            id = Random.Shared.Next(100, 1000),
+            insertDate = DateTime.Now,
+            info = $"Truck: {position.truckNo} position:59.3455,19.05666)",
+            _event = "GPS"
+         });
+        Snackbar.Add($"GPS position for truck: {position.truckNo.ToUpper()} are: (59.3455, 19.05666)", Severity.Info);
+        
+        //data = _monitoringHelper.GetMonitoring(userEmail);
+        return Task.CompletedTask;
+    }
+    Task NoGoods(MonitoringItem position)
+    {
+        position.packagesLoaded = 0;
+        position.kgLoaded = 0;
+        position.approved = false;
+        position.modifiedDateTime = DateTime.Now;
+        position.reason = "no goods";
+        @* position.loaded = true;
+        position.loadedDateTime = position.modifiedDateTime;*@ 
+         
+
+        return Task.CompletedTask;
+    }
+    Task SetDateTime(MonitoringItem position, DateKind kind)
+    {
+        switch(kind)
+        {
+            case DateKind.loading:
+            {
+                position.loadedDateTime = DateTime.Now;
+                CheckLoadingQty(position);
+                break;
+            }
+            case DateKind.delivery:
+            {
+                position.unloadedDateTime = DateTime.Now;
+                data = _monitoringHelper.GetMonitoring(userEmail, id);
+                
+                break;
+            } 
+            default:
+            {
+                position.modifiedDateTime = DateTime.Now;
+                break;
+            }
+        }
+        
+        return Task.CompletedTask;
+    }
+    Task SetApproved(MonitoringItem position, bool value)
+    {
+        position.approved = value;
+        position.modifiedDateTime = DateTime.Now;
+        @* if(value)
+            position.reason = string.Empty; *@
+
+        return Task.CompletedTask;
+    }
+
+    Task CheckLoadingQty(MonitoringItem position)
+    {
+        if(position.packagesLoaded != position.packages || position.kg != position.kgLoaded )
+        {
+            position.approved = false;
+            position.reason = "wrong qty";
+        }
+        else
+        {
+            position.approved = true;
+            //position.reason = string.Empty;
+        }
+        position.loaded = true;
+        position.loadedDateTime = DateTime.Now;
+        
+        position.modifiedDateTime = DateTime.Now;
+        _monitoringHelper.AddHistoryItem(position.id, new HistoryItem{
+            id = Random.Shared.Next(100, 200),
+            info = "Material qty change",
+            insertDate = DateTime.Now,
+            _event = "MATERIL"
+        });
+        
+        return Task.CompletedTask;
+    }
+    Task DeleteItem(MonitoringItem position)
+    {
+        string _not = string.Empty;
+        string info = $"Position for transport order: {position.transportOrder} was{_not} deleted.";
+        if(!_monitoringHelper.RemoveItem(position))
+        {
+            _not = " not";
+            Snackbar.Add(info, Severity.Error);
+        }
+        else
+        {
+            Snackbar.Add(info, Severity.Success);
+            data = _monitoringHelper.GetMonitoring(userEmail, id);
+            
+        }
+        return Task.CompletedTask;
+    }
+    
+    Task AddMonitoringItems()
+    {
+        _monitoringHelper.AddItems(25);
+        data = _monitoringHelper.GetMonitoring(userEmail, id);
+        
+        return Task.CompletedTask;
+    }
+    @* protected override async Task OnInitializedAsync()
+    {
+        var users  = _monitoringHelper.GetUsers();
+        foreach(var item in users)
+        {
+            usersLinks.Add(item.Value, $"{UrlHelper.Monitoring.MonitoringPath}/{item.Key}");
+        } 
+        if(user is not null)
+            userEmail = users[Guid.Parse(user)];
+
+        data = _monitoringHelper.GetMonitoring(userEmail, id);
+
+    } *@
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if(firstRender)
+        {
+            var users  = _monitoringHelper.GetUsers();
+            foreach(var item in users)
+            {
+                usersLinks.Add(item.Value, $"{UrlProvider.Monitoring.MonitoringPath}/{item.Key}");
+            } 
+            if(user is not null)
+                users.TryGetValue((Guid)user, out var userEmail);
+
+            data = _monitoringHelper.GetMonitoring(userEmail, id);
+            StateHasChanged();
+        }
+    }
+}
