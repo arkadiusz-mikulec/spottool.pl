@@ -1,7 +1,9 @@
 @using SpotTool.Web.Contracts.UI.Spot
 @using MudBlazor
 
-<MudIconButton Variant="Variant.Filled" Color="@Button.Color" Size="Size.Small" OnClick="OnClick" Icon="@Button.ButtonIcon" />
+<MudTooltip Text="@Button.ButtonText">
+    <MudIconButton Variant="Variant.Filled" Color="@Button.Color" Size="Size.Medium" OnClick="OnClick" Icon="@Button.ButtonIcon" />
+</MudTooltip>
 
 @code {
     [Parameter]

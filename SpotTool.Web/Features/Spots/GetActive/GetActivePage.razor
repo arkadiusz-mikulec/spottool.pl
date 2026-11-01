@@ -41,9 +41,9 @@
                     <MudTh>Id</MudTh>
                     <MudTh>Contact</MudTh>
                     <MudTh>Deadline</MudTh>
-                    <MudTh>Current Status</MudTh>
                     <MudTh>Route</MudTh>
-                    <MudTh>Contact phone</MudTh>
+                    <MudTh>Current Status</MudTh>
+                    @* <MudTh>Contact phone</MudTh> *@
                     <MudTh>Operations</MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -52,10 +52,22 @@
                             string link = $"/spots/{context.SpotModel.Spot.Id}";
                             string pseudoNumber = $"Spot-{Random.Shared.Next(1000, 9999)}";
                         }
-                        <MudLink Href="@link">@context.SpotModel.Spot.UserId</MudLink>
+                        <MudLink Href="@link">@pseudoNumber</MudLink>
                     </MudTd>
-                    <MudTd DataLabel="Contact person">@(context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email)</MudTd>
+                    <MudTd DataLabel="Contact person">
+                        @{
+                            string email = context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email;
+                            var contact = $"<a href=mailto:{email}>{email}</a><br/>" + 
+                            $"{(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)}";
+                        }
+                        @((MarkupString)contact)
+                    </MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.UserOffset)</MudTd>
+                    <MudTd DataLabel="Route">
+                        <MudText>
+                            @((MarkupString)context.SpotModel.Spot.Description!)
+                        </MudText>
+                    </MudTd>
                     <MudTd DataLabel="Current Status">
                         @{
                             (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
@@ -65,12 +77,7 @@
                                 @text
                         </MudChip>
                     </MudTd>
-                    <MudTd DataLabel="Route">
-                        <MudText>
-                            @((MarkupString)context.SpotModel.Spot.Description!)
-                        </MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Contact phone" HideSmall="true">@(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)</MudTd>
+                    @* <MudTd DataLabel="Contact phone" HideSmall="true">@(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)</MudTd> *@
                     <MudTd DataLabel="Operations">
                         @foreach(var button in context.SpotButtons)
                         {                

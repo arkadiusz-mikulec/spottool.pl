@@ -1,16 +1,73 @@
-﻿@inherits LayoutComponentBase
+﻿@using SpotTool.Web.Features.Shared.Cookies
+@inherits LayoutComponentBase
 
-@* Required *@
-<MudThemeProvider />
+@inject CookieService _cookie
+
+<MudThemeProvider @bind-IsDarkMode="_darkMode" />
 <MudPopoverProvider />
-
-@* Needed for dialogs *@
 <MudDialogProvider />
-
-@* Needed for snackbars *@
 <MudSnackbarProvider />
 
-<div class="page">
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <MudText Typo="Typo.h5" Class="ml-3">Spottool</MudText>
+        <MudSpacer />
+        <MudMenu EndIcon="@Icons.Material.Filled.KeyboardArrowDown" Label="@_menuLabel" Color="Color.Inherit">
+            <MudMenuItem Label="Change mode" OnClick="ChangeMode" Icon="@MudBlazor.Icons.Material.Filled.Settings"/>
+            @if(!isLogged)
+            {
+                <MudMenuItem Label="Login" Href="/" Icon="@MudBlazor.Icons.Material.Filled.Login"/>    
+            }
+            else
+            {
+                <MudMenuItem Label="Logout" Href="/logout" Icon="@MudBlazor.Icons.Material.Filled.Logout"/>
+            }
+        </MudMenu>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="10">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+    @* <div id="blazor-error-ui" data-nosnippet>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div> *@
+</MudLayout>
+
+@code {
+    // prev incon: MoreVert
+    bool _drawerOpen = true;
+    bool _darkMode = true;
+    string _menuLabel = "Open menu";
+    bool isLogged = false;
+    void ChangeMode()
+    {
+        _darkMode = !_darkMode;
+    }
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            var userData = await _cookie.GetUserEmailAndOffsetCookieAsync();
+            if(userData is not null)
+            {
+                _menuLabel = userData.Email;
+                isLogged = true;
+                StateHasChanged();
+            }
+        }
+    }
+}
+
+@* <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
@@ -25,9 +82,9 @@
         </article>
     </main>
 </div>
-
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div> *@
+

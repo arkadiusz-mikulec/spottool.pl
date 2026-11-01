@@ -73,7 +73,7 @@ public static class Buttons
 {
     public static Button CopyButton()
     { 
-        return new Button {ActionName = ButtonAction.COPY_SPOT, ButtonText = "CoPY", ButtonIcon = MudBlazor.Icons.Material.Filled.CopyAll, Color = MudBlazor.Color.Secondary }; 
+        return new Button {ActionName = ButtonAction.COPY_SPOT, ButtonText = "CoPY", ButtonIcon = MudBlazor.Icons.Material.Filled.CopyAll, Color = MudBlazor.Color.Success }; 
     }
     public static Button ConfirmButton()
     { 
@@ -81,7 +81,7 @@ public static class Buttons
     }
     public static Button EditButton()
     { 
-        return new Button {ActionName = ButtonAction.EDIT_SPOT, ButtonText = "Edit", ButtonIcon = MudBlazor.Icons.Material.Filled.Edit, Color = MudBlazor.Color.Primary}; 
+        return new Button {ActionName = ButtonAction.EDIT_SPOT, ButtonText = "Edit", ButtonIcon = MudBlazor.Icons.Material.Filled.Edit, Color = MudBlazor.Color.Warning}; 
     }
     public static Button DetailsButton()
     { 

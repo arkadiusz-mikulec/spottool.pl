@@ -1,4 +1,17 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@MudBlazor.Icons.Material.Filled.Home">Home</MudNavLink>
+    <MudNavLink Href="spots/active" Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.List">Active spots</MudNavLink>
+    <MudNavLink Href="users/invite"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Add">Invite carrier</MudNavLink>
+    @* <MudNavGroup Title="Settings" Icon="@MudBlazor.Icons.Material.Filled.Settings" Expanded="false">
+        <MudNavLink Href="/users"  Match="NavLinkMatch.Prefix">Users</MudNavLink>
+        <MudNavLink Href="/security"  Match="NavLinkMatch.Prefix">Security</MudNavLink>
+    </MudNavGroup> *@
+    <MudNavLink Href="logout"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Logout">Logout</MudNavLink>
+</MudNavMenu>
+
+
+@* <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">SpotTool</a>
     </div>
@@ -26,4 +39,4 @@
 
     </nav>
 </div>
-
+ *@

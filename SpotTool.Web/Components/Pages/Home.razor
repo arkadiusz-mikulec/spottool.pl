@@ -10,10 +10,10 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1>Log in please</h1>
+<h3>Log in please</h3>
 
-<MudTextField @bind-Value="login" Label="Provide email address" HelperText="Separate email by ';'" Variant="Variant.Outlined" /><br/>
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Login">Log in</MudButton> 
+<MudTextField @bind-Value="login" Label="Provide email address" Variant="Variant.Outlined" /><br/>
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Login" StartIcon="@MudBlazor.Icons.Material.Filled.Login">Log in</MudButton> 
 
 @code {
     private string login {get; set;} = string.Empty;
@@ -21,13 +21,18 @@
 
     async Task Login()
     {
-        var user = await _userService.GetUserByEmailAsync(login, cts.Token);
-        if(user is null)
-            Snackbar.Add($"User: {login} does not exist", Severity.Error);
+        if(string.IsNullOrEmpty(login.Trim()))
+            Snackbar.Add("Provide email address to login", Severity.Error);
         else
         {
-            await _cookieService.SetUserEmailAndOffsetCookieAsync(login, 7);
-            _navigation.NavigateTo("spots/active", true);    
+            var user = await _userService.GetUserByEmailAsync(login, cts.Token);
+            if(user is null)
+                Snackbar.Add($"User: {login} does not exist", Severity.Error);
+            else
+            {
+                await _cookieService.SetUserEmailAndOffsetCookieAsync(login, 7);
+                _navigation.NavigateTo("spots/active", true);    
+            }
         }
     }
 

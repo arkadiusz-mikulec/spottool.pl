@@ -8,6 +8,6 @@
     protected override async Task OnInitializedAsync()
     {
         await _cookieService.DeleteUserEmailAndOffsetCookieAsync();
-        _navigation.NavigateTo("/");
+        _navigation.NavigateTo("/", true);
     }
 }
