@@ -3,12 +3,14 @@
 @using SpotTool.Web.Domain
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Monitoring
 @using SpotTool.Web.Features.Offers.Create
 @using SpotTool.Web.Features.Offers.Reject
 @using SpotTool.Web.Features.Spots.Accept
 @using SpotTool.Web.Features.Spots.Reject
 
 @inject IDateTimeProvider _dateTimeProvider
+@inject IMonitoringHelper _monitoringHelper
 
 <style>
     .selected {
@@ -126,7 +128,7 @@
                     offer.CreatedForUser.Id, 
                     "Test - reject by carrier from dialog")
                 .ExecuteAsync();
-            
+
             if(rejectOfferCommandResult.IsError)
                 Console.WriteLine($"Error reject offer: {rejectOfferCommandResult.ErrorMsg}");
             else
@@ -143,7 +145,10 @@
             if(result.IsError)
                 Console.WriteLine($"Error accept spot: {result.ErrorMesage}");
             else
+            {
+                _monitoringHelper.AddItems();
                 MudDialog?.Close(DialogResult.Ok(true));
+            }
         }
     }
 

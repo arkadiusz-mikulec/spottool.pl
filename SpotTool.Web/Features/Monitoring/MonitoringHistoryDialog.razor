@@ -1,0 +1,49 @@
+@using SpotTool.Web.Domain.Helpers
+@using MudBlazor
+
+@inject IDateTimeProvider _dateTimeProvider
+
+<MudDialog>
+    <TitleContent>
+        @MudDialog?.Title
+    </TitleContent>
+    <DialogContent>
+        <MudTable T="@HistoryItem" Items="@History" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                <HeaderContent>
+                    <MudTh>CreatedAt</MudTh>
+                    <MudTh>Event</MudTh>
+                    <MudTh>Info</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="CreatedAt">@GetDateTimeInUserTime(context.insertDate)</MudTd>
+                    <MudTd DataLabel="Event">
+                        @context._event
+                    </MudTd>
+                    <MudTd DataLabel="Info">
+                        @context.info
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public List<HistoryItem> History {get; set;} = [];
+    
+    [Parameter]
+    public TimeSpan? UserOffset {get; set;}
+
+    private void Cancel() => MudDialog?.Cancel();
+  
+    string GetDateTimeInUserTime(DateTimeOffset dateTimeOffset)
+    {
+        return _dateTimeProvider.ToUserLocalTime(dateTimeOffset, UserOffset ?? TimeSpan.Zero);
+    }
+}

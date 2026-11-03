@@ -112,7 +112,8 @@
 
             if(currentUserFromCookie is null)
             {
-                _navi.NavigateTo("/");        
+                _navi.NavigateTo("/");
+                return;        
             }
             else            
                 await InitUserAsync();

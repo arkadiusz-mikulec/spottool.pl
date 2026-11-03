@@ -13,8 +13,6 @@
 @inject ISnackbar Snackbar
 @inject CookieService _cookieService
 
-<p>@userDataProvider?.Email with offset @userDataProvider?.UserOffset.ToString()</p><br/>
-
 <MudTextField @bind-Value="emails" Label="List of carriers" HelperText="Separate email by ';'" Variant="Variant.Outlined" /><br/>
 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="InviteBiddersAsync" Disabled="@inviteBtnDisabled">Invite new carriers</MudButton><br/><br/> 
 <p style="color: red;"><b>@errors</b></p>
