@@ -15,7 +15,7 @@ public static class UrlProvider
     public static class Monitoring
     {
         public const string MonitoringPath = "monitoring";
-        public const string MonitoringPathWithUserAndId = MonitoringPath + "/{user:guid?}/{id:int?}";
+        public const string MonitoringPathWithIssuerIdAndItemId = MonitoringPath + "/{issuer:guid?}/{id:int?}";
 
         public static class LinkAndIcon
         {

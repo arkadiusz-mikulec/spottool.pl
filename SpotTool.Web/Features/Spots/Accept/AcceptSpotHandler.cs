@@ -42,7 +42,7 @@ public class AcceptSpotHandler(
         spot.CurrentStatus = Status.Spot.Accepted;
         spot.WinnerOfferSnapShot = new DbModels.OfferSnapShot(
             winnerOffer.Id,
-            winnerOffer.CreatedByUser,
+            winnerOffer.CreatedForUser,
             winnerOffer.Value,
             winnerOffer.CreatedAt,
             winnerOffer.Status,

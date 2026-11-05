@@ -1,7 +1,9 @@
 ﻿@using SpotTool.Web.Features.Shared.Cookies
+@using SpotTool.Web.Features.Users
 @inherits LayoutComponentBase
 
 @inject CookieService _cookie
+@inject UserService _userService;
 
 <MudThemeProvider @bind-IsDarkMode="_darkMode" />
 <MudPopoverProvider />
@@ -26,7 +28,7 @@
         </MudMenu>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="10">
-        <NavMenu />
+        <NavMenu UserId="@_userId" />
     </MudDrawer>
     <MudMainContent>
         @Body
@@ -44,6 +46,7 @@
     bool _darkMode = true;
     string _menuLabel = "Open menu";
     bool isLogged = false;
+    Guid? _userId = null;
     void ChangeMode()
     {
         _darkMode = !_darkMode;
@@ -60,6 +63,10 @@
             if(userData is not null)
             {
                 _menuLabel = userData.Email;
+                var userProviderData = await _userService.SetUserProviderData(userData, CancellationToken.None);
+                if(userProviderData is not null)
+                    _userId = userProviderData.Id;
+
                 isLogged = true;
                 StateHasChanged();
             }

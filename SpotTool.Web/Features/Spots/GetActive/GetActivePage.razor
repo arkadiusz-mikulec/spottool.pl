@@ -178,6 +178,7 @@
             parameters.Add(x=>x.IssuerId, userDataProvider!.Id);
             parameters.Add(x=>x.SpotUserId, spot.SpotModel.Spot.UserId);
             parameters.Add(x=>x.SpotStatus, spot.SpotModel.Spot.CurrentStatus);
+            parameters.Add(x=>x.SpotOwnerEmail, spot.SpotModel.Spot.CreatedByUser.PersonDetail.Email);
 
             //alternatywa
             @* var parameters = new DialogParameters<Dialog>

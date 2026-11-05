@@ -1,45 +1,31 @@
 ﻿@using SpotTool.Web.Domain.Helpers
+
+@inject NavigationManager _navigation
+
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@MudBlazor.Icons.Material.Filled.Home">Home</MudNavLink>
     <MudNavLink Href="spots/active" Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.List">Active spots</MudNavLink>
     <MudNavLink Href="users/invite"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Add">Invite carrier</MudNavLink>
-    <MudNavLink Href="@UrlProvider.Monitoring.MonitoringPath"  Match="NavLinkMatch.Prefix" 
-        Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon">@UrlProvider.Monitoring.LinkAndIcon.Value.Text
-    </MudNavLink>
-    @* <MudNavGroup Title="Settings" Icon="@MudBlazor.Icons.Material.Filled.Settings" Expanded="false">
-        <MudNavLink Href="/users"  Match="NavLinkMatch.Prefix">Users</MudNavLink>
-        <MudNavLink Href="/security"  Match="NavLinkMatch.Prefix">Security</MudNavLink>
-    </MudNavGroup> *@
+    <MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
+        <MudNavLink OnClick="@(() => OnMonitoringClick(UserId))" Match="NavLinkMatch.Prefix">My positions</MudNavLink>
+        <MudNavLink OnClick="@(() => OnMonitoringClick(null))" Match="NavLinkMatch.All">Others</MudNavLink>
+    </MudNavGroup>
+    @* Nie działa !!!<MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
+        <MudNavLink Href="@($"{UrlProvider.Monitoring.MonitoringPath}/{UserId}")" OnClick="@(() => OnMonitoringClick(UserId))"
+             Match="NavLinkMatch.Prefix">My positions</MudNavLink>
+        <MudNavLink Href="@UrlProvider.Monitoring.MonitoringPath" OnClick="@(() => OnMonitoringClick(null))" 
+            Match="NavLinkMatch.Prefix">Others</MudNavLink>
+</MudNavGroup> *@
     <MudNavLink Href="logout"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Logout">Logout</MudNavLink>
 </MudNavMenu>
 
+@code{
+    [Parameter]
+    public Guid? UserId {get; set;}
 
-@* <div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">SpotTool</a>
-    </div>
-</div>
+    void OnMonitoringClick(Guid? userId)
+    {
+        _navigation.NavigateTo($"{UrlProvider.Monitoring.MonitoringPath}/{userId}", true);
+    }
+}
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="spots/active">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Active spots
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="users/invite">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Invite carriers
-            </NavLink>
-        </div>
-
-    </nav>
-</div>
- *@

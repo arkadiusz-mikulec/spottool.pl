@@ -10,7 +10,6 @@
 @using SpotTool.Web.Features.Spots.Reject
 
 @inject IDateTimeProvider _dateTimeProvider
-@inject IMonitoringHelper _monitoringHelper
 
 <style>
     .selected {
@@ -31,7 +30,7 @@
         @MudDialog?.Title
     </TitleContent>
     <DialogContent>
-        <MudTable T="@DbModels.Offer" Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info"
+        <MudTable T="DbModels.Offer" Items="@Offers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info"
             @bind-SelectedItem="_selectedOffer" RowClassFunc="@SelectedRowClassFunc">
                 <HeaderContent>
                     <MudTh>CreatedAt</MudTh>
@@ -106,7 +105,8 @@
     public Guid SpotUserId {get; set;}
     [Parameter]
     public Status.Spot SpotStatus {get; set;}
-
+    [Parameter]
+    public string SpotOwnerEmail {get; set;} = string.Empty;
     DbModels.Offer? _selectedOffer { get; set; }
     int _selectedRowNumber = -1;
 
@@ -146,7 +146,14 @@
                 Console.WriteLine($"Error accept spot: {result.ErrorMesage}");
             else
             {
-                _monitoringHelper.AddItems();
+                string bidder = _selectedOffer.CreatedForUser.PersonDetail.Email;
+                var addMonitoringItemCommand = await new AddMonitoringItemCommand(
+                    $"Spot-{Random.Shared.Next(1000, 9999)}", 
+                    SpotOwnerEmail, 
+                    bidder, 
+                    1)
+                .ExecuteAsync();
+
                 MudDialog?.Close(DialogResult.Ok(true));
             }
         }

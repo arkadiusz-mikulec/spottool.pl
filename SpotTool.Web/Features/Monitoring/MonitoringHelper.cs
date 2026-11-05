@@ -4,10 +4,10 @@ namespace SpotTool.Web.Features.Monitoring;
 
 public interface IMonitoringHelper
 {
-    List<MonitoringItem> GetMonitoring(string? user, int? id);
+    List<MonitoringItem> GetMonitoring(bool issuer, string user, int? id = null);
     //void SetMonitoringItem(MonitoringItem item);
     bool RemoveItem(MonitoringItem item);    
-    void AddItems(int count = 1, string issuere = "arkadiusz.mikulec@gmail.com", string bidder = "biuro@e-sie.pl");
+    void AddItems(string issuer, string bidder, string _to, int count = 1);
     //Dictionary<Guid, string> GetUsers();
     List<HistoryItem> GetHistory(int monitoringItemId);
     void AddHistoryItem(int monitoringItemId, HistoryItem item);
@@ -18,12 +18,13 @@ public class MonitoringHelper(IDateTimeProvider _dateTimeProvider): IMonitoringH
 {
     private List<MonitoringItem> _monitoring {get; set;} = [];
 
-    public List<MonitoringItem> GetMonitoring(string? user = null, int? id = null)
+    public List<MonitoringItem> GetMonitoring(bool issuer, string user, int? id = null)
     {
-        if(user is null && id is null)
-            return _monitoring;
-        else if(id is null)
-            return [.. _monitoring.Where(m=>m.carrier.Equals(user, StringComparison.CurrentCultureIgnoreCase) && m.unloaded == false)];
+        if(id is null)
+        {
+            return issuer ? [.. _monitoring.Where(m=>m.dispo.Equals(user, StringComparison.CurrentCultureIgnoreCase))] :
+                [.. _monitoring.Where(m=>m.carrier.Equals(user, StringComparison.CurrentCultureIgnoreCase) && m.unloaded == false)];
+        }        
         else
             return [.. _monitoring.Where(m=>m.id == id && m.unloaded == false)];
     }
@@ -40,7 +41,7 @@ public class MonitoringHelper(IDateTimeProvider _dateTimeProvider): IMonitoringH
             return false;
         }
     }
-    public void AddItems(int count = 1, string issuer = "arkadiusz.mikulec@gmail.com", string bidder = "biuro@e-site.pl")
+    public void AddItems(string issuer, string bidder, string _to, int count = 1)
     {
         for (int i = 0; i < count; i++)
         {
@@ -55,10 +56,16 @@ public class MonitoringHelper(IDateTimeProvider _dateTimeProvider): IMonitoringH
                 info = "Position was created"
             };
 
-            _monitoring.Add(new MonitoringItem() {id = i, transportOrder = $"324567-{i}", companies = ["comp01", "comp02", "comp03"], loadingTill = DateTime.Now.AddMinutes(pallets), 
-                dispo = issuer, carrier = bidder,
-                packages = pallets, packagesLoaded = pallets,
-                kg = randomKg, kgLoaded = randomKg, history = [historyItem] });
+            if(pallets % 2 == 0)
+                _monitoring.Add(new MonitoringItem() {id = i, transportOrder = _to, companies = ["comp01", "comp02", "comp03"], loadingTill = DateTime.Now.AddMinutes(pallets), 
+                    dispo = issuer, carrier = bidder,
+                    packages = pallets, packagesLoaded = pallets,
+                    kg = randomKg, kgLoaded = randomKg, history = [historyItem] });
+            else
+                _monitoring.Add(new MonitoringItem() {id = i, transportOrder = _to, companies = [bidder], loadingTill = DateTime.Now.AddMinutes(pallets), 
+                    dispo = issuer, carrier = bidder,
+                    packages = pallets, packagesLoaded = pallets,
+                    kg = randomKg, kgLoaded = randomKg, history = [historyItem] });
 
             // if(i % 5 == 0)
             //     _monitoring.Add(new MonitoringItem() {id = i, transportOrder = $"324567-{i}", companies = ["comp01", "comp02", "cpmp03"], loadingTill = DateTime.Now.AddMinutes(pallets), 

@@ -1,5 +1,6 @@
-@attribute [Route(UrlProvider.Monitoring.MonitoringPathWithUserAndId)]
+@attribute [Route(UrlProvider.Monitoring.MonitoringPathWithIssuerIdAndItemId)]
 
+@using FastEndpoints
 @using MudBlazor
 @using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Features.Shared.Cookies
@@ -11,47 +12,20 @@
 @inject CookieService _cookieService
 @inject NavigationManager _navi
 <h4>Monitoring module</h4>
-@* @if(isDispo)
-{
-    <MudCard>
-        <MudCardContent>
-            <MudGrid>
-            <MudItem xs="12">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-                    <MudTable Items="@usersLinks" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
-                        <HeaderContent>
-                            <MudTh>USER</MudTh>
-                            <MudTh>LINK</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="USER">
-                                @context.Key
-                            </MudTd>
-                            <MudTd DataLabel="LINK">
-                                <MudLink Href="@context.Value" Target="_blank" Underline="Underline.Always">@context.Value</MudLink>
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-        </MudCardContent>
-    </MudCard>
-} *@
 
 <MudCard>
     <MudCardContent>
-        @* @if(isDispo)
+        @if(isDispo)
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="AddMonitoringItems" StartIcon="@MudBlazor.Icons.Material.Filled.Add">
                 Add new positions
             </MudButton>
             <br/><br/>
-        } *@
+        }
         <MudGrid>
             <MudItem xs="12">
                 <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-                    <MudTable T="@MonitoringItem" Items="@data" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                    <MudTable T="MonitoringItem" Items="@data" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
                         <HeaderContent>
                             <MudTh Style="@HideForCarrier()">Operations</MudTh>
                             <MudTh>Client</MudTh>
@@ -61,6 +35,7 @@
                             <MudTh>TruckNo</MudTh>
                             <MudTh>@(isDispo ? "PLT / PLT loaded" : "Units")</MudTh>
                             <MudTh>kg</MudTh>
+                            <MudTh>LoadingTill</MudTh>
                             <MudTh>IsLoaded</MudTh>
                             <MudTh>IsUnloaded</MudTh>
                             <MudTh Style="@HideForCarrier()">Delete</MudTh>
@@ -167,6 +142,9 @@
                                         ValueChanged="@((float qty) => CheckLoadingKgQty(context, qty))" Disabled="@(context.approved == true)"/>
                                 }
                             </MudTd>
+                            <MudTd DataLabel="LoadingTill">
+                                @string.Format("{0:MM/dd HH:mm}", context.loadingTill)
+                            </MudTd>
                             <MudTd DataLabel="IsLoaded">
                                 <MudTooltip Text="@(context.loadedDateTime is null ? "Not loaded yet" : context.loadedDateTime.ToString())">
                                     <MudCheckBox T="bool" Value="context.loaded" ReadOnly="@isDispo"
@@ -174,17 +152,10 @@
                                 </MudTooltip>
                             </MudTd>    
                             <MudTd DataLabel="IsUnloaded">
-                                @if(context.unloadedDateTime is not null)
-                                {
-                                    <MudTooltip Text="@context.unloadedDateTime?.ToString("g")">
-                                        <MudCheckBox T="bool" Value="context.unloaded" ReadOnly="@isDispo" />
-                                    </MudTooltip>
-                                }
-                                else
-                                {
-                                    <MudCheckBox T="bool" Value="context.unloaded" ReadOnly="@isDispo" 
+                                <MudTooltip Text="@(context.unloadedDateTime is null ? "In transit" : context.unloadedDateTime.ToString())">
+                                    <MudCheckBox T="bool" Value="context.unloaded" ReadOnly="@isDispo"
                                         ValueChanged="@(() => SetDateTime(context, DateKind.delivery))" />
-                                }
+                                </MudTooltip>
                             </MudTd>   
                             <MudTd DataLabel="Delete" Style="@HideForCarrier()">
                                 <MudTooltip Text="DELETE">
@@ -221,9 +192,9 @@
 
 @code {
     [Parameter]
-    public Guid? user {get; set;}
-    [Parameter]
     public int? id {get; set;}
+    [Parameter]
+    public Guid? issuer {get; set;}
     UserProvider? userDataProvider = null;
     //string disp = "arkadiusz.mikulec@gmail.com";
     bool isDispo = false;
@@ -324,6 +295,7 @@
             case DateKind.loading:
             {
                 position.loadedDateTime = DateTime.Now;
+                position.loaded = true;
                 CheckLoadingKgQty(position, position.kgLoaded);
                 CheckLoadingUnitsQty(position, position.packagesLoaded);
                 break;
@@ -331,8 +303,8 @@
             case DateKind.delivery:
             {
                 position.unloadedDateTime = DateTime.Now;
-                data = _monitoringHelper.GetMonitoring(userDataProvider?.Email, id);
-                
+                position.unloaded = true;
+                GetMonitoringData();   
                 break;
             } 
             default:
@@ -370,7 +342,7 @@
         position.packagesLoaded = qty;
         position.loaded = true;
         position.loadedDateTime = DateTime.Now;
-        
+
         position.modifiedDateTime = DateTime.Now;
         _monitoringHelper.AddHistoryItem(position.id, new HistoryItem{
             //id = Random.Shared.Next(100, 200),
@@ -378,7 +350,7 @@
             insertDate = DateTime.Now,
             _event = "MATERIAL"
         });
-        
+
         return Task.CompletedTask;
     }
     Task CheckLoadingKgQty(MonitoringItem position, float qty)
@@ -397,7 +369,7 @@
         position.kgLoaded = qty;
         position.loaded = true;
         position.loadedDateTime = DateTime.Now;
-        
+
         position.modifiedDateTime = DateTime.Now;
         _monitoringHelper.AddHistoryItem(position.id, new HistoryItem{
             //id = Random.Shared.Next(100, 200),
@@ -405,7 +377,7 @@
             insertDate = DateTime.Now,
             _event = "MATERIAL"
         });
-        
+
         return Task.CompletedTask;
     }
     Task DeleteItem(MonitoringItem position)
@@ -420,20 +392,30 @@
         else
         {
             Snackbar.Add(info, Severity.Success);
-            data = _monitoringHelper.GetMonitoring(userDataProvider?.Email, id);
-            
+            GetMonitoringData();
         }
         return Task.CompletedTask;
     }
-    
-    Task AddMonitoringItems()
+
+    async Task AddMonitoringItems()
     {
-        _monitoringHelper.AddItems(5);
-        data = _monitoringHelper.GetMonitoring(userDataProvider?.Email, id);
-        
-        return Task.CompletedTask;
+        var addMonitoringItemCommand = await new AddMonitoringItemCommand(
+                $"Spot-{Random.Shared.Next(1000, 9999)}", 
+                "arkadiusz.mikulec@gmail.com", 
+                "biuro@e-site.pl",
+                5)
+            .ExecuteAsync(cts.Token);
+
+        if(addMonitoringItemCommand.IsError)
+            Snackbar.Add(addMonitoringItemCommand.ErrorMesage!, Severity.Error);
+
+        GetMonitoringData();
     }
- 
+    void GetMonitoringData()
+    {
+        data = _monitoringHelper.GetMonitoring(isDispo, userDataProvider!.Email, id);
+        StateHasChanged();
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if(firstRender)
@@ -451,11 +433,12 @@
             else
             {
                 userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
-                data = _monitoringHelper.GetMonitoring(userDataProvider?.Email, id);    
-                isDispo = userDataProvider!.Roles.Contains(Domain.Types.Role.User.Issuer);
+                isDispo = userDataProvider!.Id.Equals(issuer);
+                GetMonitoringData();
+                //return;
             }
             
-            StateHasChanged();
+            //StateHasChanged();
         }
     }
 }
