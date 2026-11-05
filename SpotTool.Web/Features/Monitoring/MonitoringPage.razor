@@ -212,8 +212,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
+        //currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
+        currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+
+        if(currentUserFromCookie is null)
+        {
+            _navi.NavigateTo("/");    
+            return;    
+        }
+        
+        userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
+        isDispo = userDataProvider!.Id.Equals(issuer);
+        GetMonitoringData();
     }
+    
     private string HideForDispo()
     {
         return isDispo ? "display: none" : "";
@@ -414,31 +426,7 @@
     void GetMonitoringData()
     {
         data = _monitoringHelper.GetMonitoring(isDispo, userDataProvider!.Email, id);
-        StateHasChanged();
+        //StateHasChanged();
     }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(firstRender)
-        {
-            if(currentUserFromCookie is null)
-            {
-                currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
-            }
-
-            if(currentUserFromCookie is null)
-            {
-                _navi.NavigateTo("/");    
-                return;    
-            }
-            else
-            {
-                userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
-                isDispo = userDataProvider!.Id.Equals(issuer);
-                GetMonitoringData();
-                //return;
-            }
-            
-            //StateHasChanged();
-        }
-    }
+    
 }

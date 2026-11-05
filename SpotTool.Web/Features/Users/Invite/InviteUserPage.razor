@@ -26,32 +26,22 @@
     UserEmailAndTimeOffset? userDataFromCookie = null;
     protected override async Task OnInitializedAsync()
     {
-        userDataFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
-    }
+        userDataFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(firstRender)
+        if(userDataFromCookie is null)
         {
-            if(userDataFromCookie is null)
-                userDataFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
-
-            if(userDataFromCookie is null)
-                _navi.NavigateTo("/");
-            else
-            {
-                userDataProvider = await _userService.SetUserProviderData(userDataFromCookie, cts.Token);
-                if(userDataProvider is null)
-                    return; 
-
-                if(userDataProvider.Roles.Contains(Role.User.Issuer))
-                    inviteBtnDisabled = false;
-                else
-                    inviteBtnDisabled = true;
-
-            }
-            StateHasChanged();
+            _navi.NavigateTo("/");
+            return;
         }
+
+        userDataProvider = await _userService.SetUserProviderData(userDataFromCookie, cts.Token);
+        if(userDataProvider is null)
+            return; 
+
+        if(userDataProvider.Roles.Contains(Role.User.Issuer))
+            inviteBtnDisabled = false;
+        else
+            inviteBtnDisabled = true;
     }
 
     async Task InviteBiddersAsync()

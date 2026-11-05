@@ -1,8 +1,9 @@
-﻿@using SpotTool.Web.Features.Shared.Cookies
+﻿@using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Shared.Cookies
 @using SpotTool.Web.Features.Users
 @inherits LayoutComponentBase
 
-@inject CookieService _cookie
+@inject CookieService _cookieService
 @inject UserService _userService;
 
 <MudThemeProvider @bind-IsDarkMode="_darkMode" />
@@ -28,7 +29,7 @@
         </MudMenu>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="10">
-        <NavMenu UserId="@_userId" />
+        <NavMenu UserId="@_userId" IsIssuerAndBidder="@isIssuerAndBidder" />
     </MudDrawer>
     <MudMainContent>
         @Body
@@ -47,6 +48,7 @@
     string _menuLabel = "Open menu";
     bool isLogged = false;
     Guid? _userId = null;
+    bool isIssuerAndBidder = true;
     void ChangeMode()
     {
         _darkMode = !_darkMode;
@@ -55,43 +57,25 @@
     {
         _drawerOpen = !_drawerOpen;
     }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if(firstRender)
+        Console.WriteLine("OnInitializedAsync() - main layout");
+        //W sytuacji wyłączenia prerenderingu HttpContext staje sie nie potrzebny!!!
+        //var userData = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
+        
+        var userData = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+        
+        if(userData is not null)
         {
-            var userData = await _cookie.GetUserEmailAndOffsetCookieAsync();
-            if(userData is not null)
+            Console.WriteLine("Cookie user is set!!!");
+            _menuLabel = userData.Email;
+            var userProviderData = await _userService.SetUserProviderData(userData, CancellationToken.None);
+            if(userProviderData is not null)
             {
-                _menuLabel = userData.Email;
-                var userProviderData = await _userService.SetUserProviderData(userData, CancellationToken.None);
-                if(userProviderData is not null)
-                    _userId = userProviderData.Id;
-
-                isLogged = true;
-                StateHasChanged();
+                _userId = userProviderData.Id;
+                isIssuerAndBidder = userProviderData.Roles.Count > 1 && !userProviderData.Roles.Contains(Role.User.Admin);
             }
+            isLogged = true;
         }
     }
 }
-
-@* <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="/logout">Logout</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
-<div id="blazor-error-ui" data-nosnippet>
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">🗙</span>
-    </div> *@
-

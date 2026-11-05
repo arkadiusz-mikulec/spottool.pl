@@ -29,6 +29,9 @@ public class CookieService(IJSRuntime _jSRuntime, IHttpContextAccessor _httpCont
         return JsonSerializer.Deserialize<UserEmailAndTimeOffset>(value);
     }
 
+//Nie potrzebne jezeli wyłączyliśmy prerender mode.
+//Potrzebne tylko jezeli mamy prerender i chcemy pobrac cookie z serwera w fazie prerender.
+// wowczas w OnInitialize mamy dostepe do HttpContext i mozemy pobierac cookie
     public async Task<UserEmailAndTimeOffset?> GetUserEmailAndOffsetCookieFromHttpContextAsync()
     {
         var httpContext = _httpContextAccessor.HttpContext;

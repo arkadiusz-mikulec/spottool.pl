@@ -10,6 +10,7 @@
         <MudNavLink OnClick="@(() => OnMonitoringClick(UserId))" Match="NavLinkMatch.Prefix">My positions</MudNavLink>
         <MudNavLink OnClick="@(() => OnMonitoringClick(null))" Match="NavLinkMatch.All">Others</MudNavLink>
     </MudNavGroup>
+    
     @* Nie działa !!!<MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
         <MudNavLink Href="@($"{UrlProvider.Monitoring.MonitoringPath}/{UserId}")" OnClick="@(() => OnMonitoringClick(UserId))"
              Match="NavLinkMatch.Prefix">My positions</MudNavLink>
@@ -22,6 +23,8 @@
 @code{
     [Parameter]
     public Guid? UserId {get; set;}
+    [Parameter]
+    public bool IsIssuerAndBidder {get; set;} = true;
 
     void OnMonitoringClick(Guid? userId)
     {

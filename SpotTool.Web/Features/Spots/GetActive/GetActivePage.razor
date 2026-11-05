@@ -98,35 +98,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
-    }
+        //currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(firstRender)
+        currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+
+        if(currentUserFromCookie is null)
         {
-            if(currentUserFromCookie is null)
-            {
-                currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
-            }
-
-            if(currentUserFromCookie is null)
-            {
-                _navi.NavigateTo("/");
-                return;        
-            }
-            else            
-                await InitUserAsync();
-        }
+            _navi.NavigateTo("/");
+            return;        
+        }            
+        await InitUserAsync();
     }
 
     private async Task InitUserAsync()
     {
-        if(currentUserFromCookie is null)
-            return;
-
         Console.WriteLine($"InitUserAsync: {currentUserFromCookie}");
-        userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
+        userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie!, cts.Token);
 
         if(userDataProvider is null)
             return; 

@@ -18,7 +18,7 @@
 @code {
     private string login {get; set;} = string.Empty;
     CancellationTokenSource cts = new ();
-
+    
     async Task Login()
     {
         if(string.IsNullOrEmpty(login.Trim()))
