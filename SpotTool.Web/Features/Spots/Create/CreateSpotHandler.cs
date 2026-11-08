@@ -9,7 +9,9 @@ using SpotTool.Web.Features.Shared.Spots;
 namespace SpotTool.Web.Features.Spots.Create;
 
 public record CreateSpotRespond(string? ErrorMsg = null, bool IsError = true, Guid? SpotId = null);
-public record CreateSpotCommand(Guid UserId, string Route, decimal Price, DateTimeOffset? Deadline, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson): ICommand<CreateSpotRespond>;
+public record CreateSpotCommand(Guid UserId, string Route, decimal Price, 
+    DateTimeOffset? Deadline, Status.Spot? Status, DbModels.ContactPersonDetail? ContactPerson,
+    string TransportMode = "ROAD", string TrackType = "ANY", string CargoType = "ANY", string? RefId = null, string? Requirments = null): ICommand<CreateSpotRespond>;
 
 public class CreateSpotHandler(
     IDocumentSession _session,
@@ -21,6 +23,7 @@ public class CreateSpotHandler(
     public async Task<CreateSpotRespond> ExecuteAsync(CreateSpotCommand req, CancellationToken ct)
     {
         Guid id = Guid.CreateVersion7();
+        
         var user = await _session.LoadAsync<DbModels.User>(req.UserId, ct);
         if(user is null)
             return new CreateSpotRespond("User not found");
@@ -29,7 +32,8 @@ public class CreateSpotHandler(
         // var contactDetails = req.ContactPerson ?? new DbModels.ContactPersonDetail(user!.ContactDetails.Name, user.ContactDetails.Mobile, user.ContactDetails.Email);;
         var spot = new DbModels.Spot 
         { 
-            Id = id, 
+            Id = id,
+            ReadableId = Random.Shared.Next(1000, 9999), 
             UserId = user!.Id, 
             Description = req.Route, 
             TargetedCost = req.Price,
@@ -38,7 +42,12 @@ public class CreateSpotHandler(
             CurrentStatus = req.Status ?? Status.Spot.NotConfirmed,
             DeadLine = req.Deadline is null ? 
                 _dateTimeProvider.Now().AddMinutes(15) : 
-                _dateTimeProvider.FormatDateTimeWithoutSecunds((DateTimeOffset)req.Deadline)
+                _dateTimeProvider.FormatDateTimeWithoutSecunds((DateTimeOffset)req.Deadline),
+            CargoType = req.CargoType,
+            TruckType = req.TrackType,
+            TransportMode = req.TransportMode,
+            RefId = req.RefId,
+            Requirments = req.Requirments
         };
 
         _session.Store(spot);

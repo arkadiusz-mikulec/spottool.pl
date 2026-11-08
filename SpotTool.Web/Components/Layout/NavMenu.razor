@@ -1,22 +1,32 @@
 ﻿@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Domain.Types
 
 @inject NavigationManager _navigation
 
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@MudBlazor.Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="spots/active" Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.List">Active spots</MudNavLink>
+    <MudNavLink Href="@UrlProvider.Spot.SpotActive" Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.List">Active spots</MudNavLink>
     <MudNavLink Href="users/invite"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Add">Invite carrier</MudNavLink>
-    <MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
-        <MudNavLink OnClick="@(() => OnMonitoringClick(UserId))" Match="NavLinkMatch.Prefix">My positions</MudNavLink>
-        <MudNavLink OnClick="@(() => OnMonitoringClick(null))" Match="NavLinkMatch.All">Others</MudNavLink>
-    </MudNavGroup>
-    
-    @* Nie działa !!!<MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
-        <MudNavLink Href="@($"{UrlProvider.Monitoring.MonitoringPath}/{UserId}")" OnClick="@(() => OnMonitoringClick(UserId))"
-             Match="NavLinkMatch.Prefix">My positions</MudNavLink>
-        <MudNavLink Href="@UrlProvider.Monitoring.MonitoringPath" OnClick="@(() => OnMonitoringClick(null))" 
-            Match="NavLinkMatch.Prefix">Others</MudNavLink>
-</MudNavGroup> *@
+    @if(UserRoles.Contains(Role.User.Bidder) && UserRoles.Contains(Role.User.Issuer))
+    {
+        @* <MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
+            <MudNavLink OnClick="@(() => OnMonitoringClick(UserId))" Match="NavLinkMatch.Prefix">My positions</MudNavLink>
+            <MudNavLink OnClick="@(() => OnMonitoringClick(null))" Match="NavLinkMatch.All">Others</MudNavLink>
+        </MudNavGroup> *@
+        <MudNavGroup Title="@UrlProvider.Monitoring.LinkAndIcon.Value.Text" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon" Expanded="true">
+            <MudNavLink Href="@($"{UrlProvider.Monitoring.MonitoringPath}/{UserId}")"
+                Match="NavLinkMatch.Prefix">My positions</MudNavLink>
+            <MudNavLink Href="@UrlProvider.Monitoring.MonitoringPath"  
+                Match="NavLinkMatch.All">Others</MudNavLink>
+        </MudNavGroup>
+    }
+    else
+    {
+        var link = UserRoles.Contains(Role.User.Issuer) ? $"{UrlProvider.Monitoring.MonitoringPath}/{UserId}" : UrlProvider.Monitoring.MonitoringPath;
+        <MudNavLink Href="@link" Match="NavLinkMatch.Prefix" Icon="@UrlProvider.Monitoring.LinkAndIcon.Value.Icon">
+            @UrlProvider.Monitoring.LinkAndIcon.Value.Text
+        </MudNavLink>
+    }
     <MudNavLink Href="logout"  Match="NavLinkMatch.Prefix" Icon="@MudBlazor.Icons.Material.Filled.Logout">Logout</MudNavLink>
 </MudNavMenu>
 
@@ -24,7 +34,7 @@
     [Parameter]
     public Guid? UserId {get; set;}
     [Parameter]
-    public bool IsIssuerAndBidder {get; set;} = true;
+    public List<Role.User> UserRoles {get; set;} = [];
 
     void OnMonitoringClick(Guid? userId)
     {

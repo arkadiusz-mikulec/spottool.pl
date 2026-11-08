@@ -1,4 +1,6 @@
-﻿@page "/spots/active"
+﻿@attribute [Route(UrlProvider.Spot.SpotActive)]
+
+@using System.Text.Json
 @using System.Threading.Channels
 @using FastEndpoints
 @using Marten
@@ -38,7 +40,10 @@
                 <HeaderContent>
                     <MudTh>Id</MudTh>
                     <MudTh>Contact</MudTh>
+                    <MudTh>ClientRefId</MudTh>
                     <MudTh>Deadline</MudTh>
+                    <MudTh>Cargo type</MudTh>
+                    <MudTh>Truck type</MudTh>
                     <MudTh>Route</MudTh>
                     <MudTh>Current Status</MudTh>
                     @* <MudTh>Contact phone</MudTh> *@
@@ -48,7 +53,7 @@
                     <MudTd DataLabel="Id">
                         @{
                             string link = $"/spots/{context.SpotModel.Spot.Id}";
-                            string pseudoNumber = $"Spot-{Random.Shared.Next(1000, 9999)}";
+                            string pseudoNumber = $"Spot-{context.SpotModel.Spot.ReadableId}";
                         }
                         <MudLink Href="@link">@pseudoNumber</MudLink>
                     </MudTd>
@@ -60,7 +65,24 @@
                         }
                         @((MarkupString)contact)
                     </MudTd>
+                    <MudTd>
+                        @if(!string.IsNullOrEmpty(context.SpotModel.Spot.Requirments))
+                        {
+                            string text = $"! {context.SpotModel.Spot.RefId ?? "INFO"}";
+                            <MudTooltip Text="@context.SpotModel.Spot.Requirments">
+                                <MudChip T="@string" Color="Color.Error">
+                                    @text
+                                </MudChip>
+                            </MudTooltip>    
+                        }
+                        else
+                        {
+                            @context.SpotModel.Spot.RefId
+                        }
+                    </MudTd>
                     <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.UserOffset)</MudTd>
+                    <MudTd>@context.SpotModel.Spot.CargoType</MudTd>
+                    <MudTd>@context.SpotModel.Spot.TruckType</MudTd>
                     <MudTd DataLabel="Route">
                         <MudText>
                             @((MarkupString)context.SpotModel.Spot.Description!)
@@ -199,6 +221,17 @@
         return DialogService.ShowAsync<AddOfferDialog>($"Add offer for SpotID: {spotId}", parameters, options);
     }
 
+    private Task OpenSpotPreviewDialogAsync(CreateSpotCommand createSpotCommand)
+    {
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };    
+        var parameters = new DialogParameters<SpotPreviewDialog>();
+
+        parameters.Add(x => x.UserOffset, userDataProvider?.UserOffset);
+        parameters.Add(x=>x.Command, JsonSerializer.Serialize(createSpotCommand, new JsonSerializerOptions { WriteIndented = true })); 
+        return DialogService.ShowAsync<SpotPreviewDialog>($"Spot preview", parameters, options);    
+
+    }
     async Task OnButtonClick(ButtonAction buttonAction, Guid spotId)
     {
         switch(buttonAction)
@@ -277,8 +310,8 @@
         string stopCountry = $"{countries[Random.Shared.Next(0, 7)]}{stopCode}";
         int index = Random.Shared.Next(1, 66); 
         DateTimeOffset loadingDatetime = _dateTimeProvider.Now().AddHours(index);
-        string route = $"<b>{startCountry}</b> ({loadingDatetime.ToString("g")}) -> <b>{stopCountry}</b> ({loadingDatetime.AddDays(1).ToString("g")})" + 
-            $"<br/>{index} plt (120*80*80) {index*250}kg<br/>Stack factor: <b>1+1</b>";
+        string route = $"<b>[{startCountry}]</b> ({loadingDatetime.ToString("g")}) -> <b>[{stopCountry}]</b> ({loadingDatetime.AddDays(1).ToString("g")})" + 
+            $"<br/>[{index} plt (120*80*80)] [{index*250} kg]<br/>Stack factor: <b>[1+1]</b>";
 
         bool setTestData = false;
         Status.Spot status = Status.Spot.NotConfirmed;
@@ -296,7 +329,7 @@
             userDataProvider!.Id,
             route,
             (index * 150),
-            null, 
+            _dateTimeProvider.Now().AddMinutes(15), 
             status, 
             setTestData ? 
                 new DbModels.ContactPersonDetail(
@@ -306,7 +339,8 @@
                 null
         );
 
-        var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
+        await OpenSpotPreviewDialogAsync(creatSpotCommand);
+        //var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
     }
     
     async Task ConsumeSpotChannelsAsync(ChannelReader<SpotSignal> reader)

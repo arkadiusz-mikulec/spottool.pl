@@ -1,0 +1,58 @@
+@using System.Text.Json
+@using FastEndpoints
+@using MudBlazor
+@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Features.Spots.Create
+
+@inject IDateTimeProvider _dateTimeProvider
+
+
+<MudDialog>
+    <TitleContent>
+        @MudDialog?.Title
+    </TitleContent>
+    <DialogContent>
+        <MudTextField T="string" 
+            Label="Spot preview"
+            Variant="Variant.Text"
+            Lines="20"
+            Sizing="InputSizing.Auto"
+            @bind-Value="Command" Typo="Typo.body2" /> 
+        <br/><br/>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="AddSpotAsync">Add spot</MudButton> <br/>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public TimeSpan? UserOffset {get; set;} = null;
+
+    [Parameter]
+    public string? Command {get; set;} 
+    private void Cancel() => MudDialog?.Cancel();
+
+
+    async Task AddSpotAsync()
+    {
+        try
+        {
+            var createSpotCommand = JsonSerializer.Deserialize<CreateSpotCommand>(Command!);
+            if(createSpotCommand is not null)
+            {
+                var result = await createSpotCommand!.ExecuteAsync();
+                if(!result.IsError)
+                    Cancel();
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Exception on AddSpot from preview. Msg: {ex.Message}");
+        }
+    }
+}

@@ -212,7 +212,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        //currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieFromHttpContextAsync();
+        await InitUserDataAsync();
+        GetMonitoringData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isDispo = userDataProvider!.Id.Equals(issuer);
+        GetMonitoringData();
+    }
+    async Task InitUserDataAsync()
+    {
         currentUserFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
 
         if(currentUserFromCookie is null)
@@ -220,12 +230,10 @@
             _navi.NavigateTo("/");    
             return;    
         }
-        
+
         userDataProvider = await _userService.SetUserProviderData(currentUserFromCookie, cts.Token);
         isDispo = userDataProvider!.Id.Equals(issuer);
-        GetMonitoringData();
     }
-    
     private string HideForDispo()
     {
         return isDispo ? "display: none" : "";

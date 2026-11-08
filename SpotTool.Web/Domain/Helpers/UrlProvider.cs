@@ -12,6 +12,17 @@ public static class UrlProvider
         }
     }
 
+    public static class Spot
+    {
+        public const string SpotPath = "spots";
+        public const string SpotActive = SpotPath + "/active";
+        
+        public static class LinkAndIcon
+        {
+            public readonly static (string Text, string Icon) Value = ("Spots", MudBlazor.Icons.Material.Filled.Monitor);
+        }
+    }
+
     public static class Monitoring
     {
         public const string MonitoringPath = "monitoring";

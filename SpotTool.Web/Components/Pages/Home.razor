@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using SpotTool.Web.Domain.Helpers
 @using SpotTool.Web.Features.Shared.Cookies
 @using SpotTool.Web.Features.Users
 
@@ -18,7 +19,13 @@
 @code {
     private string login {get; set;} = string.Empty;
     CancellationTokenSource cts = new ();
-    
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cookieUser = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+        if(cookieUser is not null)
+            _navigation.NavigateTo(UrlProvider.Spot.SpotActive);
+    }
     async Task Login()
     {
         if(string.IsNullOrEmpty(login.Trim()))
@@ -31,7 +38,7 @@
             else
             {
                 await _cookieService.SetUserEmailAndOffsetCookieAsync(login, 7);
-                _navigation.NavigateTo("spots/active", true);    
+                _navigation.NavigateTo(UrlProvider.Spot.SpotActive, true);    
             }
         }
     }

@@ -29,7 +29,7 @@
         </MudMenu>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="10">
-        <NavMenu UserId="@_userId" IsIssuerAndBidder="@isIssuerAndBidder" />
+        <NavMenu UserId="@userProviderData?.Id" UserRoles="@(userProviderData is null ? [] : userProviderData.Roles)" />
     </MudDrawer>
     <MudMainContent>
         @Body
@@ -47,8 +47,7 @@
     bool _darkMode = true;
     string _menuLabel = "Open menu";
     bool isLogged = false;
-    Guid? _userId = null;
-    bool isIssuerAndBidder = true;
+    UserProvider? userProviderData = null;
     void ChangeMode()
     {
         _darkMode = !_darkMode;
@@ -69,12 +68,7 @@
         {
             Console.WriteLine("Cookie user is set!!!");
             _menuLabel = userData.Email;
-            var userProviderData = await _userService.SetUserProviderData(userData, CancellationToken.None);
-            if(userProviderData is not null)
-            {
-                _userId = userProviderData.Id;
-                isIssuerAndBidder = userProviderData.Roles.Count > 1 && !userProviderData.Roles.Contains(Role.User.Admin);
-            }
+            userProviderData = await _userService.SetUserProviderData(userData, CancellationToken.None);
             isLogged = true;
         }
     }

@@ -10,14 +10,17 @@ public static class DbModels
     public class Spot
     {
         public Guid Id {get; set;} = Guid.CreateVersion7();
+        public int ReadableId {get;set;}
         public Guid UserId {get; set;}
+        public string? RefId {get;set;}
         public string? Description {get; set;} // some kind of titly for a spot?
         public decimal TargetedCost {get; set;} = 0;
         public ContactPersonDetail? ContactDetails { get; set; } //in case we want to create spot from system user but assing special contact person
         public DateTimeOffset DeadLine { get; set; } = DateTimeOffset.Now.AddMinutes(15);
-
-        //To DELETE!!! durog update
-        public DateTimeOffset? NegotiationDeadLine { get; set; }
+        public string? Requirments {get; set;}
+        public string TransportMode {get; set;} = "ROAD";
+        public string TruckType {get; set;} = "ANY";
+        public string CargoType {get; set;} = "ANY";
         public string? CancelReason { get; set; }
         public Currency.Code CurrencyCode { get; set; } = Currency.Code.EUR;
         public Status.Spot CurrentStatus {get; set;} = Status.Spot.NotConfirmed;
@@ -26,6 +29,16 @@ public static class DbModels
         public DateTimeOffset CreatedAt {get; set;} = DateTimeOffset.Now;
         public required UserSnapShot CreatedByUser { get; set; }
         public List<Guid>? BiddersId {get; set;} = null; // UserId which placed offer
+    }
+
+    public class Trucks
+    {
+        public string Name {get; set;} = string.Empty;
+        public int MaxWeightInkg { get; set; }
+        public int MaxWIncm { get; set; }
+        public int MaxLIncm { get; set; }
+        public int MaxHIncm { get; set; }
+        public int MaxQm => MaxHIncm * MaxLIncm * MaxWIncm;
     }
 
     public class SpotStatusHistory
