@@ -1,4 +1,5 @@
 using FastEndpoints;
+using SpotTool.Web.Features.Users;
 
 namespace SpotTool.Web.Features.Monitoring;
 

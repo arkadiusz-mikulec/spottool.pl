@@ -1,0 +1,80 @@
+@using System.Text.Json
+@using MudBlazor
+@using SpotTool.Web.Domain
+@using SpotTool.Web.Domain.Helpers
+@using SpotTool.Web.Domain.Types
+@using SpotTool.Web.Features.Users
+
+@inject IDateTimeProvider _dateTimeProvider
+@inject IDialogService DialogService
+@inject IConfiguration _appConfig
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSpotAsync" StartIcon="@MudBlazor.Icons.Material.Filled.Add"
+    Disabled="@createSpotBtnDisabled">
+    Create spot
+</MudButton> 
+
+@code {
+    [Parameter]
+    public UserProvider? UserData {get;set;}
+    bool  createSpotBtnDisabled = true;
+
+    protected override void OnParametersSet()
+    {
+        if(UserData?.Roles.Contains(Role.User.Issuer) == true)
+            createSpotBtnDisabled = false;
+        else
+            createSpotBtnDisabled = true;
+    }
+    async Task CreateSpotAsync()
+    {
+        int startCode = Random.Shared.Next(10, 99);
+        int stopCode = Random.Shared.Next(10, 99);
+        string[] countries = ["DE", "PL", "CZ", "SK", "ES", "PT", "NL", "AT"];
+        string startCountry = $"{countries[Random.Shared.Next(0, 7)]}{startCode}";
+        string stopCountry = $"{countries[Random.Shared.Next(0, 7)]}{stopCode}";
+        int index = Random.Shared.Next(1, 66); 
+        DateTimeOffset loadingDatetime = _dateTimeProvider.Now().AddHours(index);
+        string route = $"<b>[{startCountry}]</b> ({loadingDatetime.ToString("g")}) -> <b>[{stopCountry}]</b> ({loadingDatetime.AddDays(1).ToString("g")})" + 
+            $"<br/>[{index} plt (120*80*80)] [{index*250} kg]<br/>Stack factor: <b>[1+1]</b>";
+
+        bool setTestData = false;
+        Status.Spot status = Status.Spot.NotConfirmed;
+
+        if(!string.IsNullOrEmpty(_appConfig["TestData:ContactPerson:Name"]))
+            setTestData = true;
+
+        if(!string.IsNullOrEmpty(_appConfig["TestData:Route"]))
+        {
+            route = _appConfig["TestData:Route"]!;
+            status = Status.Spot.Ok;
+        }
+
+        var creatSpotCommand = new CreateSpotCommand(
+            UserData!.Id,
+            route,
+            (index * 150),
+            _dateTimeProvider.Now().AddMinutes(15), 
+            status, 
+            setTestData ? 
+                new DbModels.ContactPersonDetail(
+                    _appConfig["TestData:ContactPerson:Name"]!,
+                    _appConfig["TestData:ContactPerson:Mobile"]!,
+                    _appConfig["TestData:ContactPerson:Email"]!) : 
+                null
+        );
+
+        await OpenSpotPreviewDialogAsync(creatSpotCommand);
+        //var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
+    }
+    private Task OpenSpotPreviewDialogAsync(CreateSpotCommand createSpotCommand)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };    
+        var parameters = new DialogParameters<SpotPreviewDialog>();
+
+        parameters.Add(x => x.UserOffset, UserData?.UserOffset);
+        parameters.Add(x=>x.Command, JsonSerializer.Serialize(createSpotCommand, new JsonSerializerOptions { WriteIndented = true })); 
+        return DialogService.ShowAsync<SpotPreviewDialog>($"Spot preview", parameters, options);    
+
+    }
+}

@@ -50,7 +50,9 @@ public class SpotBgService : BackgroundService
                 delay =  nextNegotiationData.Value.NextTick - currentTime;
             }
 
-            if(delay < TimeSpan.Zero && (nextSpotDeadline.HasValue || nextNegotiationData.HasValue))
+            if(delay >= TimeSpan.FromDays(1))
+                delay = TimeSpan.FromDays(1);
+            else if(delay < TimeSpan.Zero && (nextSpotDeadline.HasValue || nextNegotiationData.HasValue))
                 delay = TimeSpan.Zero;
 
             Console.WriteLine($"Now: {currentTime}, SpotDlHasValue: {nextSpotDeadline.HasValue}, NegDeadLine: {nextNegotiationData.HasValue}, Next call for: {delay}");

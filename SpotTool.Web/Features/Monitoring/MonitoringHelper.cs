@@ -62,7 +62,7 @@ public class MonitoringHelper(IDateTimeProvider _dateTimeProvider): IMonitoringH
                     packages = pallets, packagesLoaded = pallets,
                     kg = randomKg, kgLoaded = randomKg, history = [historyItem] });
             else
-                _monitoring.Add(new MonitoringItem() {id = i, transportOrder = _to, companies = [bidder], loadingTill = DateTime.Now.AddMinutes(pallets), 
+                _monitoring.Add(new MonitoringItem() {id = i, transportOrder = _to, companies = [bidder], company = bidder, loadingTill = DateTime.Now.AddMinutes(pallets), 
                     dispo = issuer, carrier = bidder,
                     packages = pallets, packagesLoaded = pallets,
                     kg = randomKg, kgLoaded = randomKg, history = [historyItem] });

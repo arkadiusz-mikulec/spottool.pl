@@ -1,10 +1,8 @@
 ﻿@attribute [Route(UrlProvider.Spot.SpotActive)]
 
-@using System.Text.Json
 @using System.Threading.Channels
 @using FastEndpoints
 @using Marten
-@using Microsoft.JSInterop
 @using MudBlazor
 @using SpotTool.Web.Contracts
 @using SpotTool.Web.Contracts.UI.Spot
@@ -21,101 +19,103 @@
 @using SpotTool.Web.Features.Users
 @inject SpotService _spotService
 @inject SpotChannelManager _spotChannelMenager
-@implements IDisposable
 @inject IDocumentSession _session
-@inject IJSRuntime _jsRuntime
 @inject IDateTimeProvider _dateTimeProvider
 @inject UserService _userService
 @inject NavigationManager _navi
-@inject IConfiguration _appConfig
 @inject IDialogService DialogService
 @inject CookieService _cookieService
+@implements IDisposable
 
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSpotAsync" Disabled="@createSpotBtnDisabled">Create spot</MudButton> 
-
-<MudGrid>
-    <MudItem xs="12">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-            <MudTable Items="@Spots" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading" LoadingProgressColor="Color.Info">
-                <HeaderContent>
-                    <MudTh>Id</MudTh>
-                    <MudTh>Contact</MudTh>
-                    <MudTh>ClientRefId</MudTh>
-                    <MudTh>Deadline</MudTh>
-                    <MudTh>Cargo type</MudTh>
-                    <MudTh>Truck type</MudTh>
-                    <MudTh>Route</MudTh>
-                    <MudTh>Current Status</MudTh>
-                    @* <MudTh>Contact phone</MudTh> *@
-                    <MudTh>Operations</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Id">
-                        @{
-                            string link = $"/spots/{context.SpotModel.Spot.Id}";
-                            string pseudoNumber = $"Spot-{context.SpotModel.Spot.ReadableId}";
-                        }
-                        <MudLink Href="@link">@pseudoNumber</MudLink>
-                    </MudTd>
-                    <MudTd DataLabel="Contact person">
-                        @{
-                            string email = context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email;
-                            var contact = $"<a href=mailto:{email}>{email}</a><br/>" + 
-                            $"{(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)}";
-                        }
-                        @((MarkupString)contact)
-                    </MudTd>
-                    <MudTd>
-                        @if(!string.IsNullOrEmpty(context.SpotModel.Spot.Requirments))
-                        {
-                            string text = $"! {context.SpotModel.Spot.RefId ?? "INFO"}";
-                            <MudTooltip Text="@context.SpotModel.Spot.Requirments">
-                                <MudChip T="@string" Color="Color.Error">
-                                    @text
+<MudCard>
+    <MudCardContent>
+        <_createSpotButtonComponent UserData="@userDataProvider" />
+    </MudCardContent>
+    <MudCardContent>
+        <MudGrid>
+            <MudItem xs="12">
+                @* <MudPaper Class="d-flex align-center justify-center mud-width-full py-8"> *@
+                    <MudTable Items="@Spots" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading" LoadingProgressColor="Color.Info">
+                        <HeaderContent>
+                            <MudTh>Id</MudTh>
+                            <MudTh>Contact</MudTh>
+                            <MudTh>ClientRefId</MudTh>
+                            <MudTh>Deadline</MudTh>
+                            <MudTh>Cargo type</MudTh>
+                            <MudTh>Truck type</MudTh>
+                            <MudTh>Route</MudTh>
+                            <MudTh>Current Status</MudTh>
+                            @* <MudTh>Contact phone</MudTh> *@
+                            <MudTh>Operations</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Id">
+                                @{
+                                    string link = $"/spots/{context.SpotModel.Spot.Id}";
+                                    string pseudoNumber = $"Spot-{context.SpotModel.Spot.ReadableId}";
+                                }
+                                <MudLink Href="@link">@pseudoNumber</MudLink>
+                            </MudTd>
+                            <MudTd DataLabel="Contact person">
+                                @{
+                                    string email = context.SpotModel.Spot.ContactDetails?.Email ?? context.SpotModel.Spot.CreatedByUser.PersonDetail.Email;
+                                    var contact = $"<a href=mailto:{email}>{email}</a><br/>" + 
+                                    $"{(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)}";
+                                }
+                                @((MarkupString)contact)
+                            </MudTd>
+                            <MudTd>
+                                @if(!string.IsNullOrEmpty(context.SpotModel.Spot.Requirments))
+                                {
+                                    string text = $"! {context.SpotModel.Spot.RefId ?? "INFO"}";
+                                    <MudTooltip Text="@context.SpotModel.Spot.Requirments">
+                                        <MudChip T="@string" Color="Color.Error">
+                                            @text
+                                        </MudChip>
+                                    </MudTooltip>    
+                                }
+                                else
+                                {
+                                    @context.SpotModel.Spot.RefId
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.UserOffset)</MudTd>
+                            <MudTd>@context.SpotModel.Spot.CargoType</MudTd>
+                            <MudTd>@context.SpotModel.Spot.TruckType</MudTd>
+                            <MudTd DataLabel="Route">
+                                <MudText>
+                                    @((MarkupString)context.SpotModel.Spot.Description!)
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Current Status">
+                                @{
+                                    (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
+                                }
+                                <MudChip T="string" Color="@color" Style="@style"
+                                    OnClick="((e) => OpenOfferHistoryDialogAsync(context.SpotModel.Spot.Id))" Disabled="false">
+                                        @text
                                 </MudChip>
-                            </MudTooltip>    
-                        }
-                        else
-                        {
-                            @context.SpotModel.Spot.RefId
-                        }
-                    </MudTd>
-                    <MudTd DataLabel="Deadline">@_dateTimeProvider.ToUserLocalTime(context.SpotModel.Spot.DeadLine, userDataProvider!.UserOffset)</MudTd>
-                    <MudTd>@context.SpotModel.Spot.CargoType</MudTd>
-                    <MudTd>@context.SpotModel.Spot.TruckType</MudTd>
-                    <MudTd DataLabel="Route">
-                        <MudText>
-                            @((MarkupString)context.SpotModel.Spot.Description!)
-                        </MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Current Status">
-                        @{
-                            (MudBlazor.Color color, string text, string style) = context.StatusUIRespond.GetStatusProperties();
-                        }
-                        <MudChip T="@string" Color="@color" Style="@style"
-                            OnClick="((e) => OpenOfferHistoryDialogAsync(context.SpotModel.Spot.Id))" Disabled="false">
-                                @text
-                        </MudChip>
-                    </MudTd>
-                    @* <MudTd DataLabel="Contact phone" HideSmall="true">@(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)</MudTd> *@
-                    <MudTd DataLabel="Operations">
-                        @foreach(var button in context.SpotButtons)
-                        {                
-                            <_buttonIconComponent Button="@button" OnClickEvent="(() => OnButtonClick(button.ActionName, context.SpotModel.Spot.Id))" />
-                        }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
-    </MudItem>
-</MudGrid>
+                            </MudTd>
+                            @* <MudTd DataLabel="Contact phone" HideSmall="true">@(context.SpotModel.Spot.ContactDetails?.Mobile ?? @context.SpotModel.Spot.CreatedByUser.PersonDetail.Mobile)</MudTd> *@
+                            <MudTd DataLabel="Operations">
+                                @foreach(var button in context.SpotButtons)
+                                {                
+                                    <_buttonIconComponent Button="@button" OnClickEvent="(() => OnButtonClick(button.ActionName, context.SpotModel.Spot.Id))" />
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                @* </MudPaper> *@
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
 
 @code {
     List<SpotUIRespond> Spots { get; set; } = [];
     private CancellationTokenSource cts = new CancellationTokenSource();
     UserProvider? userDataProvider = null;
     bool loading {  get; set; } = true;
-    bool createSpotBtnDisabled = true;    
     UserEmailAndTimeOffset? currentUserFromCookie = null;
 
     protected override async Task OnInitializedAsync()
@@ -141,11 +141,6 @@
             return; 
 
         Console.WriteLine($"Current user: {userDataProvider.Email}");
-
-        if(userDataProvider.Roles.Contains(Role.User.Issuer))
-            createSpotBtnDisabled = false;
-        else
-            createSpotBtnDisabled = true;
 
         var reader = _spotChannelMenager.Subscribe(userDataProvider.Id, userDataProvider.Roles, userDataProvider.UserGroups);
 
@@ -221,17 +216,6 @@
         return DialogService.ShowAsync<AddOfferDialog>($"Add offer for SpotID: {spotId}", parameters, options);
     }
 
-    private Task OpenSpotPreviewDialogAsync(CreateSpotCommand createSpotCommand)
-    {
-        
-        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };    
-        var parameters = new DialogParameters<SpotPreviewDialog>();
-
-        parameters.Add(x => x.UserOffset, userDataProvider?.UserOffset);
-        parameters.Add(x=>x.Command, JsonSerializer.Serialize(createSpotCommand, new JsonSerializerOptions { WriteIndented = true })); 
-        return DialogService.ShowAsync<SpotPreviewDialog>($"Spot preview", parameters, options);    
-
-    }
     async Task OnButtonClick(ButtonAction buttonAction, Guid spotId)
     {
         switch(buttonAction)
@@ -300,47 +284,6 @@
 
         if(updateSpotDeadlineResult.IsError)
             Console.WriteLine($"Error: update deadlina - {updateSpotDeadlineResult.ErrorMsg}");
-    }
-    async Task CreateSpotAsync()
-    {
-        int startCode = Random.Shared.Next(10, 99);
-        int stopCode = Random.Shared.Next(10, 99);
-        string[] countries = ["DE", "PL", "CZ", "SK", "ES", "PT", "NL", "AT"];
-        string startCountry = $"{countries[Random.Shared.Next(0, 7)]}{startCode}";
-        string stopCountry = $"{countries[Random.Shared.Next(0, 7)]}{stopCode}";
-        int index = Random.Shared.Next(1, 66); 
-        DateTimeOffset loadingDatetime = _dateTimeProvider.Now().AddHours(index);
-        string route = $"<b>[{startCountry}]</b> ({loadingDatetime.ToString("g")}) -> <b>[{stopCountry}]</b> ({loadingDatetime.AddDays(1).ToString("g")})" + 
-            $"<br/>[{index} plt (120*80*80)] [{index*250} kg]<br/>Stack factor: <b>[1+1]</b>";
-
-        bool setTestData = false;
-        Status.Spot status = Status.Spot.NotConfirmed;
-
-        if(!string.IsNullOrEmpty(_appConfig["TestData:ContactPerson:Name"]))
-            setTestData = true;
-
-        if(!string.IsNullOrEmpty(_appConfig["TestData:Route"]))
-        {
-            route = _appConfig["TestData:Route"]!;
-            status = Status.Spot.Ok;
-        }
-
-        var creatSpotCommand = new CreateSpotCommand(
-            userDataProvider!.Id,
-            route,
-            (index * 150),
-            _dateTimeProvider.Now().AddMinutes(15), 
-            status, 
-            setTestData ? 
-                new DbModels.ContactPersonDetail(
-                    _appConfig["TestData:ContactPerson:Name"]!,
-                    _appConfig["TestData:ContactPerson:Mobile"]!,
-                    _appConfig["TestData:ContactPerson:Email"]!) : 
-                null
-        );
-
-        await OpenSpotPreviewDialogAsync(creatSpotCommand);
-        //var createResult = await creatSpotCommand.ExecuteAsync(cts.Token);
     }
     
     async Task ConsumeSpotChannelsAsync(ChannelReader<SpotSignal> reader)

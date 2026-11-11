@@ -12,21 +12,44 @@
 @inject NavigationManager _navi
 @inject ISnackbar Snackbar
 @inject CookieService _cookieService
+@inject IConfiguration _appConfig;
 
-<MudTextField @bind-Value="emails" Label="List of carriers" HelperText="Separate email by ';'" Variant="Variant.Outlined" /><br/>
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="InviteBiddersAsync" Disabled="@inviteBtnDisabled">Invite new carriers</MudButton><br/><br/> 
-<p style="color: red;"><b>@errors</b></p>
+<MudCard>
+    <MudCardContent>
+    <MudTextField @bind-Value="emails" Label="List of carriers" HelperText="Separate emails by ';'" Variant="Variant.Outlined" /><br/>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="InviteBiddersAsync" 
+        Disabled="@inviteBtnDisabled">Invite new carriers</MudButton>
+    </MudCardContent>
+</MudCard>
+@if(showEmailBody)
+{
+    <br/>
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.body2">
+                Carrier's account has been created.<br/>
+                Get below email template and send to carrier please.
+            </MudText><br/><br/>
+            <MudTextField T="string" f
+                Label="Invitation email template"
+                Variant="Variant.Outlined"
+                Lines="20"
+                Sizing="InputSizing.Auto"
+                @bind-Value="emailBody" Typo="Typo.body2" />
+        </MudCardContent>
+    </MudCard> 
+}
 
 @code {
     private CancellationTokenSource cts = new CancellationTokenSource();
     UserProvider? userDataProvider = null;
     bool inviteBtnDisabled = true;
-    string emails {get; set;} = string.Empty; 
-    string errors = string.Empty;
-    UserEmailAndTimeOffset? userDataFromCookie = null;
+    string emails {get; set;} = string.Empty;
+    bool showEmailBody {get; set;} = false;
+    string? emailBody { get; set; } 
     protected override async Task OnInitializedAsync()
     {
-        userDataFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
+        var userDataFromCookie = await _cookieService.GetUserEmailAndOffsetCookieAsync();
 
         if(userDataFromCookie is null)
         {
@@ -42,6 +65,17 @@
             inviteBtnDisabled = false;
         else
             inviteBtnDisabled = true;
+        emailBody = GetEmailBody(_appConfig);
+    }
+    private string GetEmailBody(IConfiguration appConfig)
+    {
+        var plBody = appConfig.GetSection("InvitationEmail:Body:PL").Get<string[]>();
+        var enBody = appConfig.GetSection("InvitationEmail:Body:EN").Get<string[]>();
+        
+        string bodyTemplate = string.Join(Environment.NewLine, plBody!);
+        bodyTemplate += "\n\n" + string.Join(Environment.NewLine, enBody!);
+
+        return string.Format(bodyTemplate, appConfig["UiSettings:MainUrl"]);
     }
 
     async Task InviteBiddersAsync()
@@ -51,12 +85,15 @@
         {
             var inviteBiddersResult = await new InviteUsersCommand(carriers).ExecuteAsync(cts.Token);
             if(inviteBiddersResult.IsError)
-                errors = $"Invite users error: {inviteBiddersResult.ErrorMsg}";
+                Snackbar.Add($"Invite users error: {inviteBiddersResult.ErrorMsg}", Severity.Error);
             else
+            {
+                showEmailBody = true;
                 Snackbar.Add("All carriers was invited.", Severity.Success);
+            }
         }
         else
-            errors = "List of new carriers is empty!";
+            Snackbar.Add("List of new carriers is empty!", Severity.Error);
             
     }
     public void Dispose()

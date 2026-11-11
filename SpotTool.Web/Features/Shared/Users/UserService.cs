@@ -17,6 +17,13 @@ public class UserService(IQuerySession _session)
         return user;
     }
 
+    public async Task<IReadOnlyList<string>> GetAllBiddersAsync(CancellationToken ct)
+    {
+        return await _session.Query<DbModels.User>()
+            .Where(m=>m.Roles.Contains(Role.User.Bidder) && m.Status != Status.User.Deleted)
+            .Select(m=>m.ContactDetails.Email)
+            .ToListAsync(ct);
+    }
 
     public async Task<UserProvider?> SetUserProviderData(UserEmailAndTimeOffset data, CancellationToken ct)
     {

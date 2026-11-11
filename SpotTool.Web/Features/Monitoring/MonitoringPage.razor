@@ -24,8 +24,8 @@
         }
         <MudGrid>
             <MudItem xs="12">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-                    <MudTable T="MonitoringItem" Items="@data" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
+                @* <MudPaper Class="d-flex align-center justify-center mud-width-full py-8"> *@
+                    <MudTable T="@MonitoringItem" Items="@data" Hover="true" Breakpoint="Breakpoint.Sm" Loading="false" LoadingProgressColor="Color.Info">
                         <HeaderContent>
                             <MudTh Style="@HideForCarrier()">Operations</MudTh>
                             <MudTh>Client</MudTh>
@@ -99,10 +99,10 @@
                                 <MudLink OnClick="(() => ShowHistory(context))">@context.transportOrder</MudLink>
                             </MudTd>
                             <MudTd DataLabel="Carrier">
-                                @if(string.IsNullOrEmpty(context.company))
+                                @if(context.companies.Count > 1)
                                 {
                                     <MudSelect @bind-Value="context.company"
-                                        Placeholder="Select carrier company">
+                                        Placeholder="@string.Format("Select {0} company", context.carrier)">
                                         @foreach (var carrier in context.companies)
                                         {
                                             <MudSelectItem Value="carrier">@carrier</MudSelectItem>
@@ -184,7 +184,7 @@
                         
                         </RowTemplate>
                     </MudTable>
-                </MudPaper>
+                @* </MudPaper> *@
             </MudItem>
         </MudGrid>
     </MudCardContent>
@@ -419,16 +419,19 @@
 
     async Task AddMonitoringItems()
     {
-        var addMonitoringItemCommand = await new AddMonitoringItemCommand(
+        var bidders = await _userService.GetAllBiddersAsync(cts.Token);
+        foreach(var bidder in bidders.Where(m=>!m.Equals(userDataProvider!.Email, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            var addMonitoringItemCommand = await new AddMonitoringItemCommand(
                 $"Spot-{Random.Shared.Next(1000, 9999)}", 
-                "arkadiusz.mikulec@gmail.com", 
-                "biuro@e-site.pl",
-                5)
+                userDataProvider!.Email, 
+                bidder,
+                1)
             .ExecuteAsync(cts.Token);
 
-        if(addMonitoringItemCommand.IsError)
-            Snackbar.Add(addMonitoringItemCommand.ErrorMesage!, Severity.Error);
-
+            if(addMonitoringItemCommand.IsError)
+                Snackbar.Add(addMonitoringItemCommand.ErrorMesage!, Severity.Error);
+        }
         GetMonitoringData();
     }
     void GetMonitoringData()

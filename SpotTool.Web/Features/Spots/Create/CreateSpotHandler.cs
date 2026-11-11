@@ -30,6 +30,7 @@ public class CreateSpotHandler(
         
         // Console.WriteLine($"User status: {user!.Status}, role: {user.Role}");
         // var contactDetails = req.ContactPerson ?? new DbModels.ContactPersonDetail(user!.ContactDetails.Name, user.ContactDetails.Mobile, user.ContactDetails.Email);;
+       
         var spot = new DbModels.Spot 
         { 
             Id = id,

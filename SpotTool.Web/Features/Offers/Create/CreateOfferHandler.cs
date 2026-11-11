@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using FastEndpoints;
 using Marten;
 using Marten.Patching;
+using SpotTool.Web.Components;
 using SpotTool.Web.Domain;
 using SpotTool.Web.Domain.Helpers;
 using SpotTool.Web.Domain.Types;
@@ -22,7 +23,8 @@ public class CreateOfferHandler(
     IDateTimeProvider _dateTimeProvider,
     SpotService _spotService,
     Channel<Guid> _wakeupChannel,
-    OfferService _offerService) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
+    OfferService _offerService,
+    IConfiguration _appConfig) : ICommandHandler<CreateOfferCommand, CreateOfferRespond>
 {
     public async Task<CreateOfferRespond> ExecuteAsync(CreateOfferCommand req, CancellationToken ct)
     {
@@ -81,6 +83,8 @@ public class CreateOfferHandler(
         if(!CanAcceptOffer(spot.CurrentStatus, prevSpotStatus, spot.DeadLine, _dateTimeProvider.Now()))
             return new CreateOfferRespond($"Offer cannot be accepted preStatus: {prevSpotStatus}");
 
+        OfferStatusCalculationDataModel model = InitModel(_appConfig);
+
         var minOffer = await _session.Query<DbModels.Offer>()
             .Where(m=>m.SpotId == spot.Id && m.Status == Status.Offer.Ok)
             .OrderBy(m=>m.Value)
@@ -91,10 +95,11 @@ public class CreateOfferHandler(
         if(minOffer is not null)
             minOfferValue = minOffer.Value < req.Value ? minOffer.Value : req.Value;
 
+
         if(spot.CurrentStatus == Status.Spot.Bidding && prevSpotStatus == Status.Spot.Bidding)
         {
             var lastOffers = await _offerService.GetLastOffersForSpotAsync(spot, ct);
-            var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. lastOffers.Where(m=>m.Value > req.Value)]);
+            var offersToUpdate = FindOffersToUpdate(minOfferValue, [.. lastOffers.Where(m=>m.Value > req.Value)], model);
             UpdateOffers(_session, offersToUpdate);
         }
 
@@ -111,8 +116,8 @@ public class CreateOfferHandler(
             CurrencyCode = req.CurrencyCode ?? Currency.Code.EUR,
             Remarks = req.Remark?.Trim().ReplaceLineEndings(" "),
             Status = offerStatus,
-            ValueStatus = SetOfferValueStatus(req.Value, minOfferValue),
-            DeltaToMinOffer = CalculateDifferent(req.Value, minOfferValue, true)
+            ValueStatus = SetOfferValueStatus(req.Value, minOfferValue, model),
+            DeltaToMinOffer = CalculateDifferent(req.Value, minOfferValue, model.CalculateInPercentage)
         };
 
         if(spot.BiddersId is not null)
@@ -202,23 +207,24 @@ public class CreateOfferHandler(
     //1. Pobieramy najnizsza i dla pozostałych wyliczamy % roznicy 
     //2. Jezeli roznica jest mniejsza niz 10% 
     //
-    private static decimal CalculateDifferent(decimal addedValue, decimal existedMinOfferValue, bool calculateInPercentage = true)
+    private static decimal CalculateDifferent(decimal addedValue, decimal existedMinOfferValue, bool calculateInPercentage)
     {
         return calculateInPercentage ? 100 - (addedValue * 100 / existedMinOfferValue) : existedMinOfferValue - addedValue;
     }
-    private static Status.OfferValue SetOfferValueStatus(decimal value, decimal minOfferValue)
+    private static Status.OfferValue SetOfferValueStatus(decimal value, decimal minOfferValue, OfferStatusCalculationDataModel model)
     {
-        decimal different = CalculateDifferent(value, minOfferValue);
-        return CalculateOfferStatus(new CalculationModel(different));
+        decimal different = CalculateDifferent(value, minOfferValue, model.CalculateInPercentage);
+        return CalculateOfferStatus(different, model);
     }
 
-    private static Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> FindOffersToUpdate(decimal minOffer, List<DbModels.Offer> restOfOffers)
+    private static Dictionary<Guid, (Status.OfferValue newStatus, decimal difference)> FindOffersToUpdate(
+        decimal minOffer, List<DbModels.Offer> restOfOffers, OfferStatusCalculationDataModel model)
     {
         Dictionary<Guid, (Status.OfferValue, decimal difference)> offersToUpdate = [];
         foreach (var item in restOfOffers)
         {
-            decimal difference = CalculateDifferent(item.Value, minOffer);
-            var newStatus = CalculateOfferStatus(new CalculationModel(difference));
+            decimal difference = CalculateDifferent(item.Value, minOffer, model.CalculateInPercentage);
+            var newStatus = CalculateOfferStatus(difference, model);
 
             Console.WriteLine($"Dif for offer value: {item.Value} and minValue: {minOffer} is {difference}. New status: {newStatus}");   
             
@@ -241,21 +247,55 @@ public class CreateOfferHandler(
                 .Set(m=>m.DeltaToMinOffer, offersToUpdate[item].difference);
         }
     }
-    private record CalculationModel(decimal Difference, bool CalculateInPercentage = true);
-    private static Status.OfferValue CalculateOfferStatus(CalculationModel model) => model switch
+    private static Status.OfferValue CalculateOfferStatus(decimal difference, OfferStatusCalculationDataModel model)
     {
-        { Difference: <= -10, CalculateInPercentage: true } => Status.OfferValue.Red,
-        { Difference: <= -50, CalculateInPercentage: false } => Status.OfferValue.Red,
-        { Difference: >= -9 and <= -6, CalculateInPercentage: true } => Status.OfferValue.Yellow,
-        { Difference: >= -49 and <= -25, CalculateInPercentage: false } => Status.OfferValue.Yellow,
-        _ => Status.OfferValue.Green  
-    };
+        int greenMax = 0;
+        if(model.OneGreenDot)
+        {
+            if(difference >= greenMax) return Status.OfferValue.Green;
+            else if(difference < greenMax && difference >= model.YellowMin) return Status.OfferValue.Yellow;
+            else return Status.OfferValue.Red;
+        }
+        else
+        {
+            if(difference >= model.GreenMin) return Status.OfferValue.Green;
+            else if(difference < model.GreenMin && difference >= model.YellowMin) return Status.OfferValue.Yellow;
+            else return Status.OfferValue.Red;
+        }
+    }
 
-    // private static Status.OfferValue CalculateOfferStatus(decimal difference) => difference switch
+    private static OfferStatusCalculationDataModel InitModel(IConfiguration appConfig)
+    {
+        bool calculateInPercentage = Convert.ToBoolean(appConfig["OfferStatusSettings:CalculateInPercentage"]);
+        bool oneGreenDot = Convert.ToBoolean(appConfig["OfferStatusSettings:OneGreenDot"]);
+
+        if(calculateInPercentage)
+        {
+            return new (
+                Convert.ToInt32(appConfig["OfferStatusSettings:Percentage:Green:Min"] ?? "-5"),
+                Convert.ToInt32(appConfig["OfferStatusSettings:Percentage:Yellow:Min"] ?? "-10"),
+                oneGreenDot, calculateInPercentage
+            );
+        }
+        else
+        {
+            return new (
+                Convert.ToInt32(appConfig["OfferStatusSettings:Value:Green:Min"] ?? "-25"),
+                Convert.ToInt32(appConfig["OfferStatusSettings:Value:Yellow:Min"] ?? "-50"),
+                oneGreenDot, calculateInPercentage
+            );
+        }
+    }
+    private record OfferStatusCalculationDataModel(int GreenMin, int YellowMin, bool OneGreenDot, bool CalculateInPercentage);
+
+    // private static Status.OfferValue CalculateOfferStatusInPerentage(decimal Difference) => Difference switch
     // {
-    //     <= -10 => Status.OfferValue.Red,
-    //     >= -9 and <= -6 => Status.OfferValue.Yellow,
+
+    //     { Difference: <= -10, CalculateInPercentage: true } => Status.OfferValue.Red,
+    //     { Difference: <= -50, CalculateInPercentage: false } => Status.OfferValue.Red,
+    //     { Difference: >= -9 and <= -6, CalculateInPercentage: true } => Status.OfferValue.Yellow,
+    //     { Difference: >= -49 and <= -25, CalculateInPercentage: false } => Status.OfferValue.Yellow,
     //     _ => Status.OfferValue.Green  
-    // }; 
+    // };
 
 }

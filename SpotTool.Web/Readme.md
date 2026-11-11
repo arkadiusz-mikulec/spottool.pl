@@ -1,4 +1,7 @@
-Co zmieniamy
+# Komendy
+docker run -d --name postgresServer --hostname postgresServer --network db_network -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -p 5432:5432 -v posgresServer-data:/var/lib/postgresql/data postgres:13-alpine 
+
+# Co zmieniamy
 1. App.razor z <HeadOutlet @rendermode="InteractiveServer" />  na  <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" /> 
 nie potrzebujemy prerenderingu
 patrz: f/bad2_Intractive.... branch readme.me file
@@ -17,3 +20,4 @@ https://www.google.com/search?sourceid=chrome&ie=UTF-8&amc=1&gs_lcrp=EgZjaHJvbWU
 
 
 Domanie.Truck - zastanowic sie nad tym
+
