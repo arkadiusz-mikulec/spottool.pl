@@ -21,3 +21,14 @@ https://www.google.com/search?sourceid=chrome&ie=UTF-8&amc=1&gs_lcrp=EgZjaHJvbWU
 
 Domanie.Truck - zastanowic sie nad tym
 
+Do zrobienia:
+Przetlumaczyc instrukcje
+Sprawdzic jak dostac sie do kontenera postgres z windows lub SeedData wraz z tworzeniem bazy #lepsze 
+
+Tabela dla Leads!
+
+Claudflare i caddy config
+instalacja na linux
+
+Serilog
+

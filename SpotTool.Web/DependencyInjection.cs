@@ -38,13 +38,13 @@ public static class DependencyInjection
             })
         );
 
-        services.AddSingleton(
-            _ => Channel.CreateUnbounded<DbModels.Offer>(new UnboundedChannelOptions
-            {
-                SingleReader = true,
-                AllowSynchronousContinuations = false
-            })
-        );
+        // services.AddSingleton(
+        //     _ => Channel.CreateUnbounded<DbModels.Offer>(new UnboundedChannelOptions
+        //     {
+        //         SingleReader = true,
+        //         AllowSynchronousContinuations = false
+        //     })
+        // );
 
         // services.AddSingleton(
         //     _ => Channel.CreateUnbounded<SpotStatusUpdateRequest>(new UnboundedChannelOptions
@@ -69,15 +69,15 @@ public static class DependencyInjection
             opts.UseSystemTextJsonForSerialization(enumStorage: Weasel.Core.EnumStorage.AsString);
 
             // Marten sam zadba o tworzenie i delikatne aktualizacje struktur w Postgresie
-            if (webHostEnvironment.IsDevelopment())
+            if (webHostEnvironment.IsProduction())
             {
                 // Deweloper ma mieć wygodę, baza dostosowuje się do kodu w locie
-                opts.AutoCreateSchemaObjects = AutoCreate.All;
+                opts.AutoCreateSchemaObjects = AutoCreate.None;
             }
             else
             {
                 // Na produkcji pełna blokada automatycznych migracji runtime
-                opts.AutoCreateSchemaObjects = AutoCreate.None;
+                opts.AutoCreateSchemaObjects = AutoCreate.All;
             }
             
             //Dodawanie tylko Index nie wudziela dodatkowej kolumny w dokumencie.

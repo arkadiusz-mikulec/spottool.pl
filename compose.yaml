@@ -35,9 +35,40 @@ services:
 # -------------- Fundamenty end --------------------
 
 # -------------- Serce systemu ----------------------
+  #API - TUTAJ BRAK WSZYSTKO JEST W web/ui
+# ------------- Serce systemu end -------------------------
+# ------------- Warstwa Proxy, UI, tunnel start -----------
+  spottool.caddy:
+    #container_name: SpotTool-Caddy-${ASPNETCORE_ENVIRONMENT}
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # ports:
+    #   - 80:80
+    environment:
+      - CLOUDFLARE_UI_NAME=${CLOUDFLARE_UI_NAME}
+      - CLOUDFLARE_LP_NAME=${CLOUDFLARE_LP_NAME}
+      - UI_COMPOSE_SERVICE_NAME=${UI_COMPOSE_SERVICE_NAME}
+      - UI_PORT=${UI_PORT}
+      - LP_FOLDER_NAME=${LP_FOLDER_NAME:-lp}
+      #- UI_LP_URL=${UI_LP_URL}
+    volumes:
+      - ${MAIN_LP_DIR:-.}/${LP_FOLDER_NAME:-lp}:/srv/${LP_FOLDER_NAME:-lp}:ro
+      - ${MAIN_LP_DIR:-.}/${CADDY_CONFIG_FOLDER_NAME:-Caddy_config}:/etc/caddy
+      - caddy_data_prod:/data
+      - caddy_config_prod:/config
+    healthcheck:
+      # Odpytujemy wewnętrzny port administracyjny (2019) serwera Caddy
+      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
+      interval: 30s      # Jak często sprawdzać stan zdrowia
+      timeout: 10s        # Czas oczekiwania na odpowiedź
+      retries: 5         # Liczba prób przed uznaniem kontenera za zepsuty
+      start_period: 10s   # Caddy wstaje natychmiast, więc 5s ochrony w zupełności wystarczy
+    networks:
+      - frontend
+
   spottool.web:
     #container_name: SpotTool-Ui-${ASPNETCORE_ENVIRONMENT}
-    image: spottool-web:${APP_VERSION:-0.1}
+    image: ${UI_COMPOSE_SERVICE_NAME}:${APP_VERSION}${APP_VARIANT}
     # env_file:
     #   - .env
     build:
@@ -45,102 +76,69 @@ services:
       dockerfile: SpotTool.Web/Dockerfile
     restart: unless-stopped
     deploy:
-      replicas: ${WEB_REPLICAS_NO:-1}  
-    ports:
-      - ${WEB_PORT:-7000}:${WEB_PORT:-7000}
+      replicas: ${UI_REPLICAS_NO:-1}  
+    # ports:
+    #   - ${UI_PORT}:${UI_PORT}
     environment:
-      - ASPNETCORE_HTTP_PORTS=${WEB_PORT:-7000}
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ASPNETCORE_HTTP_PORTS=${UI_PORT}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-      - ConnectionStrings__SpotToolMartenDB=${DB_CONNECTION_STRING:-Server=postgresServer;Database=SpotToolDB;User Id=postgres;Password=postgres;Port=5432;}
+      - ConnectionStrings__SpotToolMartenDB=${DB_CONNECTION_STRING}
+      - UiSettings__MainUrl=${UI_MAIN_URL}
+      - UI_LP_URL=${UI_LP_URL}
+      - CLOUDFLARE_TS_KEY=${CLOUDFLARE_TS_KEY}
+      - YT_URL=${YT_URL}
       # - ApiSettings__MainUrl=${HTTP_PROTOCOL}://${API_COMPOSE_SERVICE_NAME}:${API_PORT}/
       # - AppSettings__GoogleApiKey=${GOOGLE_API_KEY}
       # - AppSettings__AdminEmail=${ADMIN_EMAIL}
-      # - UI_LP_URL=${UI_LP_URL}
-      # - CLOUDFLARE_TS_KEY=${CLOUDFLARE_TS_KEY}
       # - TZ=Europe/Warsaw
       #- SeriLogSettings__LogPaths__All=${MAIN_OUTPUT_DIR}${UI}${LOGS}/SpotTool.log
     # volumes:
     #   - ${MAIN_OUTPUT_DIR}${UI}${UPLOAD}:/app/wwwroot/uploads
     #   - ${MAIN_OUTPUT_DIR}${UI}${LOGS}:/app/logs
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:${UI_PORT}/health" ]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
-    #   start_period: 15s
-    # depends_on:
-    #   spottool.caddy:
-    #     condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${UI_PORT}/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      spottool.caddy:
+        condition: service_healthy
     networks:
       - db_network
+      - frontend
 
-  
-# ------------- Serce systemu end -------------------------
-# ------------- Warstwa Proxy, UI, tunnel start -----------
-  # spottool.caddy:
-  #   container_name: SpotTool-Caddy-${ASPNETCORE_ENVIRONMENT}
-  #   image: caddy:2-alpine
-  #   restart: unless-stopped
-  #   # ports:
-  #   #   - 80:80
-  #   environment:
-  #     - CLOUDFLARE_UI_NAME=${CLOUDFLARE_UI_NAME}
-  #     - CLOUDFLARE_LP_NAME=${CLOUDFLARE_LP_NAME}
-  #     - UI_COMPOSE_SERVICE_NAME=${UI_COMPOSE_SERVICE_NAME}
-  #     - UI_PORT=${UI_PORT}
-  #     - LP_FOLDER_NAME=${LP_FOLDER_NAME:-lp}
-  #     #- UI_LP_URL=${UI_LP_URL}
-  #   volumes:
-  #     - ${MAIN_LP_DIR:-.}/${LP_FOLDER_NAME:-lp}:/srv/${LP_FOLDER_NAME:-lp}:ro
-  #     - ${MAIN_LP_DIR:-.}/${CADDY_CONFIG_FOLDER_NAME:-Caddy_config}:/etc/caddy
-  #     - caddy_data_prod:/data
-  #     - caddy_config_prod:/config
-  #   healthcheck:
-  #     # Odpytujemy wewnętrzny port administracyjny (2019) serwera Caddy
-  #     test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
-  #     interval: 30s      # Jak często sprawdzać stan zdrowia
-  #     timeout: 10s        # Czas oczekiwania na odpowiedź
-  #     retries: 5         # Liczba prób przed uznaniem kontenera za zepsuty
-  #     start_period: 10s   # Caddy wstaje natychmiast, więc 5s ochrony w zupełności wystarczy
-  #   depends_on:
-  #     spottool.api:
-  #       condition: service_healthy
-  #   networks:
-  #     - frontend
-
-  # spottool.tunnel:
-  #   container_name: SpotTool-Tunnel-${ASPNETCORE_ENVIRONMENT}
-  #   image: cloudflare/cloudflared:latest
-  #   # env_file:
-  #   #   - .env
-  #   restart: unless-stopped
-  #   command: tunnel --no-autoupdate run
-  #   environment:
-  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-  #     # 1. Włączamy wewnętrzny serwer metryk (wymagane, aby komenda "ready" działała)
-  #     - TUNNEL_METRICS=0.0.0.0:60123
-  #   healthcheck:
-  #     # 2. Używamy wbudowanego mechanizmu sprawdzania gotowości połączenia z Cloudflare
-  #     test: ["CMD", "cloudflared", "tunnel", "--metrics", "0.0.0.0:60123", "ready"]
-  #     interval: 10s       # Jak często Docker ma sprawdzać stan zdrowia
-  #     timeout: 5s         # Czas oczekiwania na odpowiedź z testu
-  #     retries: 3          # Ile razy z rzędu tunel musi zawieść, by uznać go za zepsuty
-  #     start_period: 15s   # Czas na nawiązanie bezpiecznego połączenia z serwerami Cloudflare
-  #   depends_on:
-  #     spottool.caddy:
-  #       condition: service_healthy
-  #   networks:
-  #     - frontend
+  spottool.tunnel:
+    #container_name: SpotTool-Tunnel-${ASPNETCORE_ENVIRONMENT}
+    image: cloudflare/cloudflared:latest
+    # env_file:
+    #   - .env
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      # 1. Włączamy wewnętrzny serwer metryk (wymagane, aby komenda "ready" działała)
+      - TUNNEL_METRICS=0.0.0.0:60123
+    healthcheck:
+      # 2. Używamy wbudowanego mechanizmu sprawdzania gotowości połączenia z Cloudflare
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "0.0.0.0:60123", "ready"]
+      interval: 10s       # Jak często Docker ma sprawdzać stan zdrowia
+      timeout: 5s         # Czas oczekiwania na odpowiedź z testu
+      retries: 3          # Ile razy z rzędu tunel musi zawieść, by uznać go za zepsuty
+      start_period: 15s   # Czas na nawiązanie bezpiecznego połączenia z serwerami Cloudflare
+    depends_on:
+      spottool.caddy:
+        condition: service_healthy
+    networks:
+      - frontend
 # ------------- Warstwa Proxy, UI, tunnel end -----------
-# volumes:
-  # db_volume_prod:
+volumes:
   # mq_volume_prod:
-  # caddy_data_prod:
-  # caddy_config_prod:
+  caddy_data_prod:
+  caddy_config_prod:
 networks:
-  # backend:
-  # frontend:
+  frontend:
   db_network:
     external: true
 

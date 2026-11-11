@@ -1,0 +1,77 @@
+@attribute [Route(UrlProvider.Lead.AddLeadPath)]
+@attribute [Route(UrlProvider.Lead.RedirectToYtPath)]
+
+@using FastEndpoints
+@using SpotTool.Web.Domain.Helpers
+
+@inject NavigationManager _navigationManager
+@inject ClaudFlareService _claudFlareService
+@inject IConfiguration _config
+
+@implements IDisposable
+
+@code {
+    [Parameter]
+    public string? name { get; set; }
+    [Parameter]
+    public string? email { get; set; }
+    [Parameter]
+    public string? mobile { get; set; }
+    [Parameter]
+    public string operation { get; set; } = string.Empty;
+    [Parameter]
+    public string ts { get; set; } = string.Empty;
+    [Parameter]
+    public string? platform { get; set; }
+
+    CancellationTokenSource cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        string url = _config["UI_LP_URL"]!;
+        string ytUrl = _config["YT_URL"]!;
+        string secreteKey = _config["CLOUDFLARE_TS_KEY"] ?? string.Empty;
+
+        if(string.IsNullOrEmpty(ts) || string.IsNullOrEmpty(secreteKey))
+        {
+            Console.WriteLine($"[ERROR]: AddLeadPage->OnInitializeAsync, ts or secreteKey is NULL");
+            _navigationManager.NavigateTo($"{url}?error=1", true);
+        }
+
+        var humanTest = await _claudFlareService.TestIfHumanAsync(secreteKey, ts, CancellationToken.None);
+
+        if(humanTest.Item1)
+        {          
+            var addLeadCommandResult = await new AddLeadCommand(name, email, mobile, operation, platform)
+                .ExecuteAsync(cts.Token);
+
+            if(!addLeadCommandResult.Added)
+                url += "?error=3"; 
+            else
+            {
+                if(!string.IsNullOrEmpty(platform) && platform.Equals("yt", StringComparison.OrdinalIgnoreCase))
+                    url = ytUrl;
+                else
+                    url += $"/thx.html?name={name}";
+            }
+        }
+        else
+            url += "?error=2";
+
+        _navigationManager.NavigateTo(url, true);
+    }
+
+    public void Dispose()
+    {
+        if (cts is { IsCancellationRequested: false })
+        {
+            try
+            {
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException) { /* Ignoruj */ }
+        }
+        cts?.Dispose();
+    }
+
+}

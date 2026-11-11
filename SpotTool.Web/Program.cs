@@ -40,6 +40,9 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddMartenDependencie(builder.Configuration, builder.Environment);
 builder.Services.AddWebDependencies();
 
+builder.Services.AddHealthChecks();
+
+
 //Moje end
 
 var app = builder.Build();
@@ -69,5 +72,19 @@ app.UseFastEndpoints(c => c.Errors.UseProblemDetails());
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.UseHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var respond = new
+        {
+            status = report.Status.ToString(),
+            duration = report.TotalDuration
+        };
+        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(respond));
+    }
+});
 
 app.Run();

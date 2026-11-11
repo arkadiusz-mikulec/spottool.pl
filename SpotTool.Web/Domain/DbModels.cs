@@ -112,5 +112,16 @@ public static class DbModels
         public string Password { get; set; } = string.Empty;
         public required UserSnapShot User { get; set; }
     }
+
+    public class Lead
+	{
+		public Guid Id { get; set; } = Guid.CreateVersion7();
+		public DateTimeOffset CreationTime { get; set; } = DateTimeOffset.Now;
+		public string? Name { get; set; }
+		public string? Email { get; set; }
+		public string? Mobile { get; set; }
+		public string? Platform { get; set; }
+		public string? Operation { get; set; }
+	}
 }
     

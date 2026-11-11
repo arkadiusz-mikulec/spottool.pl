@@ -34,5 +34,12 @@ public static class UrlProvider
         }
     }
 
+    public static class Lead
+    {
+        public const string LeadPath = "lead";
+        public const string AddLeadPath = LeadPath + "/{name}/{email}/{mobile}/{operation}/{ts}/add";
+        public const string RedirectToYtPath = LeadPath + "/{operation}/{ts}/{platform}/redirect";
+
+    }
 
 }
